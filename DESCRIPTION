@@ -5,12 +5,20 @@ Authors@R:
     person(given = "Alexander",
            family = "Hanf",
            role = c("aut", "cre"),
-           email = "alexander.hanf@gmx.de")
+           email = "alexanderhanf@gmx.de")
 Description: AutoML in mlr3.
 License: LGPL-3
 Encoding: UTF-8
 BugReports: https://github.com/a-hanf/mlr3automl/issues
 Depends:
     R (>= 3.1.0)
+Imports:
+    checkmate,
+    mlr3,
+    mlr3pipelines,
+    mlr3tuning,
+    paradox,
+    R6
 Suggests: 
     testthat
+RoxygenNote: 6.1.1

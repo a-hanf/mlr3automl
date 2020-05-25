@@ -1,11 +1,46 @@
-library(R6)
-library(mlr3pipelines)
-library(mlr3tuning)
-library(mlr3)
-library(paradox)
-
-AutoML = R6Class(
-  "AutoML",
+#' @title AutoML
+#' @format [R6Class] AutoML
+#' @usage NULL
+#' @format [`R6Class`].
+#' @description
+#' base class for AutoML in mlr3automl. Has subclasses for Classification and Regression.
+#' @section Construction:
+#' ```
+#' AutoML$new(task)
+#' ```
+#' @section Internals:
+#' The AutoML class uses `mlr3pipelines` to create a GraphLearner. Then other stuff happens
+#' @section Fields:
+#' * `task` :: `Task` object from `mlr3` \cr
+#'   Contains the data and some meta-features (like the target variable)
+#' * `learner` :: `GraphLearner` object from `mlr3pipelines` \cr
+#'   Contains the machine learning pipeline containing preprocessing steps and a `Learner` object
+#' * `resampling` :: `Resampling` object from `mlr3tuning` \cr
+#'   Contains the resampling method to be used for hyper-parameter optimization
+#' * `measures` :: `Measure` object from `mlr_measures` \cr
+#'   Contains the performance measure, for which we optimize during training
+#' * `param_set` :: `ParamSet` object from `paradox` \cr
+#'   Contains the parameter space over which we optimize
+#' * `tuning_terminator` :: `Terminator` object from `mlr3tuning` \cr
+#'   Contains the termination criterion for model tuning
+#' * `tuner` :: `Tuner` object from `mlr3tuning` \cr
+#'   Contains the tuning strategy used for hyper-parameter optimization (default: Random Search)
+#' * `train_performance` :: numeric: performance of trained model \cr
+#'   This is the model performance during training with the chosen resampling strategy
+#' @section Methods
+#' * `train()` \cr
+#'   Runs the AutoML system. The trained model is saved in the $learner slot.
+#' @import checkmate
+#' @import mlr3
+#' @import mlr3pipelines
+#' @import mlr3tuning
+#' @import paradox
+#' @importFrom R6 R6Class
+#' @name AutoML
+#' @export
+#' @examples
+#' 'add later'
+AutoML = R6Class("AutoML",
   public = list(
     task = NULL,
     learner = NULL,
@@ -24,7 +59,6 @@ AutoML = R6Class(
       self$resampling = if (!is.null(resampling)) resampling else rsmp("holdout", ratio = 0.8)
       self$tuning_terminator = if (!is.null(terminator)) terminator else term("evals", n_evals = 5)
       self$tuner <- tnr("random_search")
-
     },
     train = function() {
       tuning <- TuningInstance$new(

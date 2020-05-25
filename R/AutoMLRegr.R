@@ -1,10 +1,3 @@
-library(R6)
-library(mlr3pipelines)
-library(mlr3tuning)
-library(mlr3)
-library(paradox)
-library(checkmate)
-
 AutoMLRegr = R6Class(
   "AutoMLRegr",
   inherit = AutoML,
@@ -18,10 +11,10 @@ AutoMLRegr = R6Class(
       } else {
         ParamSet$new(list(
           ParamDbl$new("regr.rpart.cp", lower = 0.001, upper = 0.1),
-          ParamInt$new("regr.rpart.minsplit", lower = 1, upper = 10)
+          ParamInt$new("regr.rpart.minsplit", lower = 1, upper = 15)
         ))
       }
-      self$measures = if (!is.null(measures)) measures else mlr_measures$get("regr.mse")
+      self$measures = if (!is.null(measures)) measures else mlr_measures$get("regr.mae")
     }
   ),
   private = list(

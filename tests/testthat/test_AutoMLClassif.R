@@ -1,5 +1,3 @@
-library(testthat)
-
 test_that("basic example works", {
   expect_r6({auto_iris = AutoMLClassif$new(mlr3::tsk("iris"))}, "AutoMLClassif")
   auto_iris$train()

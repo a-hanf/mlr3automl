@@ -1,10 +1,3 @@
-library(R6)
-library(mlr3pipelines)
-library(mlr3tuning)
-library(mlr3)
-library(paradox)
-library(checkmate)
-
 AutoMLClassif = R6Class(
   "AutoMLClassif",
   inherit = AutoML,
