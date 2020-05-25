@@ -12,3 +12,5 @@ Encoding: UTF-8
 BugReports: https://github.com/a-hanf/mlr3automl/issues
 Depends:
     R (>= 3.1.0)
+Suggests: 
+    testthat
