@@ -14,6 +14,7 @@ AutoML = R6Class(
     param_set = NULL,
     tuning_terminator = NULL,
     tuner = NULL,
+    train_performance = NULL,
     initialize = function(task, learner = NULL, resampling = NULL,
                           measures = NULL, param_set = NULL, terminator = NULL) {
       private$..perform_input_checks(task, learner, resampling, measures, param_set, terminator)
@@ -21,7 +22,7 @@ AutoML = R6Class(
       # get_default_learner should be implemented by child classes
       self$learner = if (!is.null(learner)) learner else private$..get_default_learner()
       self$resampling = if (!is.null(resampling)) resampling else rsmp("holdout", ratio = 0.8)
-      self$tuning_terminator = if (!is.null(terminator)) terminator else term("clock_time", secs = 10)
+      self$tuning_terminator = if (!is.null(terminator)) terminator else term("evals", n_evals = 5)
       self$tuner <- tnr("random_search")
 
     },
@@ -36,6 +37,7 @@ AutoML = R6Class(
       )
       self$tuner$tune(tuning)
       self$learner$param_set$values = tuning$result$params
+      self$train_performance = tuning$result$perf
     }
   ),
   private = list(

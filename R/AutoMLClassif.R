@@ -9,13 +9,6 @@ AutoMLClassif = R6Class(
   "AutoMLClassif",
   inherit = AutoML,
   public = list(
-    task = NULL,
-    learner = NULL,
-    resampling = NULL,
-    measures = NULL,
-    param_set = NULL,
-    tuning_terminator = NULL,
-    tuner = NULL,
     initialize = function(task, learner = NULL, resampling = NULL,
                           measures = NULL, param_set = NULL, terminator = NULL) {
       checkmate::assert_r6(task, "TaskClassif")
