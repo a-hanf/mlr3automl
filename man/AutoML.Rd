@@ -3,6 +3,7 @@
 \docType{data}
 \name{AutoML}
 \alias{AutoML}
+\alias{AutoMLBase}
 \title{AutoML}
 \format{[R6Class] AutoML}
 \description{
@@ -41,6 +42,6 @@ The AutoML class uses `mlr3pipelines` to create a GraphLearner. Then other stuff
 }
 
 \examples{
-'add later'
+"add later"
 }
 \keyword{datasets}

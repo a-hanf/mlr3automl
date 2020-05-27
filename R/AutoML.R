@@ -39,8 +39,8 @@
 #' @name AutoML
 #' @export
 #' @examples
-#' 'add later'
-AutoML = R6Class("AutoML",
+#' "add later"
+AutoMLBase <- R6Class("AutoMLBase",
   public = list(
     task = NULL,
     learner = NULL,
@@ -53,11 +53,11 @@ AutoML = R6Class("AutoML",
     initialize = function(task, learner = NULL, resampling = NULL,
                           measures = NULL, param_set = NULL, terminator = NULL) {
       private$..perform_input_checks(task, learner, resampling, measures, param_set, terminator)
-      self$task = task
+      self$task <- task
       # get_default_learner should be implemented by child classes
-      self$learner = if (!is.null(learner)) learner else private$..get_default_learner()
-      self$resampling = if (!is.null(resampling)) resampling else rsmp("holdout", ratio = 0.8)
-      self$tuning_terminator = if (!is.null(terminator)) terminator else term("evals", n_evals = 5)
+      self$learner <- if (!is.null(learner)) learner else private$..get_default_learner()
+      self$resampling <- if (!is.null(resampling)) resampling else rsmp("holdout", ratio = 0.8)
+      self$tuning_terminator <- if (!is.null(terminator)) terminator else term("evals", n_evals = 5)
       self$tuner <- tnr("random_search")
     },
     train = function() {
@@ -70,8 +70,8 @@ AutoML = R6Class("AutoML",
         terminator = self$tuning_terminator
       )
       self$tuner$tune(tuning)
-      self$learner$param_set$values = tuning$result$params
-      self$train_performance = tuning$result$perf
+      self$learner$param_set$values <- tuning$result$params
+      self$train_performance <- tuning$result$perf
     }
   ),
   private = list(
@@ -85,3 +85,13 @@ AutoML = R6Class("AutoML",
     }
   )
 )
+
+AutoML <- function(task, learner = NULL, resampling = NULL, measures = NULL, param_set = NULL, terminator = NULL) {
+  if (class(task)[[1]] == "TaskClassif") {
+    return(AutoMLClassif$new(task, learner, resampling, measures, param_set, terminator))
+  } else if (class(task)[[1]] == "TaskRegr") {
+    return(AutoMLRegr$new(task, learner, resampling, measures, param_set, terminator))
+  } else {
+    stop("mlr3automl only supports classification and regression tasks for now")
+  }
+}

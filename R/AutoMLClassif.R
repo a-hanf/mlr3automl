@@ -1,6 +1,6 @@
 AutoMLClassif = R6Class(
   "AutoMLClassif",
-  inherit = AutoML,
+  inherit = AutoMLBase,
   public = list(
     initialize = function(task, learner = NULL, resampling = NULL,
                           measures = NULL, param_set = NULL, terminator = NULL) {
