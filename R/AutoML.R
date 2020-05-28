@@ -25,8 +25,6 @@
 #'   Contains the termination criterion for model tuning
 #' * `tuner` :: `Tuner` object from `mlr3tuning` \cr
 #'   Contains the tuning strategy used for hyper-parameter optimization (default: Random Search)
-#' * `train_performance` :: numeric: performance of trained model \cr
-#'   This is the model performance during training with the chosen resampling strategy
 #' @section Methods
 #' * `train()` \cr
 #'   Runs the AutoML system. The trained model is saved in the $learner slot.
@@ -49,29 +47,19 @@ AutoMLBase <- R6Class("AutoMLBase",
     param_set = NULL,
     tuning_terminator = NULL,
     tuner = NULL,
-    train_performance = NULL,
     initialize = function(task, learner = NULL, resampling = NULL,
                           measures = NULL, param_set = NULL, terminator = NULL) {
       private$..perform_input_checks(task, learner, resampling, measures, param_set, terminator)
       self$task <- task
-      # get_default_learner should be implemented by child classes
-      self$learner <- if (!is.null(learner)) learner else private$..get_default_learner()
       self$resampling <- if (!is.null(resampling)) resampling else rsmp("holdout", ratio = 0.8)
-      self$tuning_terminator <- if (!is.null(terminator)) terminator else term("evals", n_evals = 5)
+      self$tuning_terminator <- if (!is.null(terminator)) terminator else term("evals", n_evals = 10)
       self$tuner <- tnr("random_search")
     },
-    train = function() {
-      tuning <- TuningInstance$new(
-        task = self$task,
-        learner = self$learner,
-        resampling = self$resampling,
-        measures = self$measures,
-        param_set = self$param_set,
-        terminator = self$tuning_terminator
-      )
-      self$tuner$tune(tuning)
-      self$learner$param_set$values <- tuning$result$params
-      self$train_performance <- tuning$result$perf
+    train = function(row_ids = NULL) {
+      self$learner$train(self$task, row_ids)
+    },
+    predict = function(row_ids = NULL) {
+      return(self$learner$predict(self$task, row_ids))
     }
   ),
   private = list(

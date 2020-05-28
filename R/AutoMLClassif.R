@@ -15,13 +15,14 @@ AutoMLClassif = R6Class(
         ))
       }
       self$measures = if (!is.null(measures)) measures else mlr_measures$get("classif.acc")
+      self$learner <- if (!is.null(learner)) learner else private$..get_default_learner()
     }
   ),
   private = list(
     ..get_default_learner = function() {
       pipeline = po("imputemedian") %>>%
         po("learner", learner = mlr_learners$get("classif.rpart"))
-      return(GraphLearner$new(pipeline))
+      return(AutoTuner$new(GraphLearner$new(pipeline), self$resampling, self$measures, self$param_set, self$tuning_terminator, self$tuner))
     }
   )
 )
