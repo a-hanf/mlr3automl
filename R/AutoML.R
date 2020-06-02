@@ -30,6 +30,7 @@
 #'   Runs the AutoML system. The trained model is saved in the $learner slot.
 #' @import checkmate
 #' @import mlr3
+#' @import mlr3learners
 #' @import mlr3oml
 #' @import mlr3pipelines
 #' @import mlr3tuning
@@ -60,8 +61,11 @@ AutoMLBase <- R6Class("AutoMLBase",
       self$learner$train(self$task, row_ids)
     },
     predict = function(data = NULL, row_ids = NULL) {
-      if (is.null(data)) return(self$learner$predict(self$task, row_ids))
-      else return(self$learner$predict(data, row_ids))
+      if (is.null(data)) {
+        return(self$learner$predict(self$task, row_ids))
+      } else {
+        return(self$learner$predict(data, row_ids))
+      }
     }
   ),
   private = list(
