@@ -37,8 +37,6 @@ The AutoML class uses `mlr3pipelines` to create a GraphLearner. Then other stuff
   Contains the termination criterion for model tuning
 * `tuner` :: `Tuner` object from `mlr3tuning` \cr
   Contains the tuning strategy used for hyper-parameter optimization (default: Random Search)
-* `train_performance` :: numeric: performance of trained model \cr
-  This is the model performance during training with the chosen resampling strategy
 }
 
 \examples{

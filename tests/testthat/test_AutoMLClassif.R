@@ -8,4 +8,29 @@ test_that("basic example works", {
   # check test performance
   prediction = auto_iris$predict(row_ids = test_set)
   expect_gt(prediction$score(auto_iris$measures), 0.8)
+
+  test_openml_task = function(task_id, min_performance) {
+    task = tsk("oml", data_id = task_id)
+    model = AutoML(task)
+    train_set = sample(model$task$nrow, 0.8 * model$task$nrow)
+    test_set = setdiff(seq_len(model$task$nrow), train_set)
+    model$train(train_set)
+    expect_gt(model$learner$model$tuning_instance$result$perf, min_performance)
+    prediction = model$predict(row_ids = test_set)
+    expect_gt(prediction$score(model$measures), min_performance)
+  }
+
+  # taken from https://www.openml.org/search?q=tags.tag%3Astudy_218&type=data&table=1&size=39
+  # as referenced in https://openml.github.io/automlbenchmark/benchmark_datasets.html
+  # most of these tasks don't run with a 412 response code - offline on OpenML?
+  test_openml_task(31L, 0.6)
+  # test_openml_task(10101L, 0.7)
+  # test_openml_task(9952L, 0.7)
+  # test_openml_task(145854, 0.85)
+  # test_openml_task(14965, 0.85)
+  test_openml_task(12, 0.85)
+  # test_openml_task(34539, 0.8)
+  # test_openml_task(9981, 0.55)
+  # test_openml_task(9952L, 0.7)
+  test_openml_task(53, 0.6)
 })
