@@ -9,7 +9,7 @@ AutoMLClassif <- R6Class(
       self$param_set <- if (!is.null(param_set)) {
         param_set
       } else {
-        ParamSet$new(list(ParamFct$new("branch.selection", c("decision_tree", "xgboost", "svm", "baseline"))))
+        ParamSet$new(list(ParamFct$new("branch.selection", c("decision_tree", "xgboost", 'svm', 'baseline'))))
         # ParamInt$new("pca.rank.", lower = 1, upper = 4)))
         # the pca.rank. parameter is only interesting when the pca branch is taken
         # ps$add_dep("pca.rank.", "branch.selection", CondEqual$new("pca"))
@@ -27,7 +27,7 @@ AutoMLClassif <- R6Class(
         baseline = private$..create_robust_learner("classif.log_reg")
       ))
       plot(pipeline)
-      return(AutoTuner$new(GraphLearner$new(pipeline), self$resampling, self$measures, self$param_set, self$tuning_terminator, self$tuner))
+      return(AutoTuner$new(GraphLearner$new(pipeline, task_type = "classif"), self$resampling, self$measures, self$param_set, self$tuning_terminator, self$tuner))
     },
     ..create_robust_learner = function(learner_name) {
       pipeline <- pipeline_robustify(
@@ -35,7 +35,7 @@ AutoMLClassif <- R6Class(
         learner = lrn(learner_name)
       )
       pipeline$set_names(pipeline$ids(), paste(learner_name, pipeline$ids(), sep = "."))
-      return(pipeline %>>% lrn(learner_name))
+      return(pipeline %>>% po("learner", lrn(learner_name)))
     }
   )
 )
