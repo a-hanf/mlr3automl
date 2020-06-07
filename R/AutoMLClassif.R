@@ -9,7 +9,7 @@ AutoMLClassif <- R6Class(
       self$param_set <- if (!is.null(param_set)) {
         param_set
       } else {
-        ParamSet$new(list(ParamFct$new("branch.selection", c("decision_tree", "xgboost", 'svm', 'baseline'))))
+        ParamSet$new(list(ParamFct$new("branch.selection", c("decision_tree", "random_forest", "xgboost", 'svm', 'baseline'))))
         # ParamInt$new("pca.rank.", lower = 1, upper = 4)))
         # the pca.rank. parameter is only interesting when the pca branch is taken
         # ps$add_dep("pca.rank.", "branch.selection", CondEqual$new("pca"))
@@ -22,6 +22,7 @@ AutoMLClassif <- R6Class(
     ..get_default_learner = function() {
       pipeline <- ppl("branch", graphs = list(
         decision_tree = private$..create_robust_learner("classif.rpart"),
+        random_forest = private$..create_robust_learner("classif.ranger"),
         xgboost = private$..create_robust_learner("classif.xgboost"),
         svm = private$..create_robust_learner("classif.svm"),
         baseline = private$..create_robust_learner("classif.log_reg")

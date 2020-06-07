@@ -9,7 +9,7 @@ AutoMLRegr <- R6Class(
       self$param_set <- if (!is.null(param_set)) {
         param_set
       } else {
-        ParamSet$new(list(ParamFct$new("branch.selection", c("decision_tree", "xgboost"))))
+        ParamSet$new(list(ParamFct$new("branch.selection", c("decision_tree", "random_forest", "xgboost", "baseline"))))
         # ParamInt$new("pca.rank.", lower = 1, upper = 4)))
         # the pca.rank. parameter is only interesting when the pca branch is taken
         # ps$add_dep("pca.rank.", "branch.selection", CondEqual$new("pca"))
@@ -22,10 +22,9 @@ AutoMLRegr <- R6Class(
     ..get_default_learner = function() {
       pipeline <- ppl("branch", graphs = list(
         decision_tree = private$..create_robust_learner("regr.rpart"),
-        xgboost = private$..create_robust_learner("regr.xgboost")
-        # both linear regression and SVM are not stable yet
-        # svm = private$..create_robust_learner("regr.svm")
-        # baseline = private$..create_robust_learner("regr.lm")
+        random_forest = private$..create_robust_learner("regr.ranger"),
+        xgboost = private$..create_robust_learner("regr.xgboost"),
+        baseline = private$..create_robust_learner("regr.lm")
       ))
       plot(pipeline)
       return(AutoTuner$new(GraphLearner$new(pipeline, task_type = "regr"), self$resampling, self$measures, self$param_set, self$tuning_terminator, self$tuner))
