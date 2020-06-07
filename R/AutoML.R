@@ -66,6 +66,12 @@ AutoMLBase <- R6Class("AutoMLBase",
       } else {
         return(self$learner$predict(data, row_ids))
       }
+    },
+    resample = function(outer_resampling_holdout_ratio = 0.8) {
+      outer_resampling = rsmp("holdout", ratio = outer_resampling_holdout_ratio)
+      resample_result = mlr3::resample(self$task, self$learner, outer_resampling, store_models = TRUE)
+      self$learner = resample_result$learners[[1]]
+      return(resample_result)
     }
   ),
   private = list(
