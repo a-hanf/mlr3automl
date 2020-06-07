@@ -88,8 +88,10 @@ AutoMLBase <- R6Class("AutoMLBase",
 
 AutoML <- function(task, learner = NULL, resampling = NULL, measures = NULL, param_set = NULL, terminator = NULL) {
   if (class(task)[[1]] == "TaskClassif") {
+    task$col_roles$stratum = task$col_info$id[task$col_info$type == "factor"]
     return(AutoMLClassif$new(task, learner, resampling, measures, param_set, terminator))
   } else if (class(task)[[1]] == "TaskRegr") {
+    task$col_roles$stratum = task$col_info$id[task$col_info$type == "factor"]
     return(AutoMLRegr$new(task, learner, resampling, measures, param_set, terminator))
   } else {
     stop("mlr3automl only supports classification and regression tasks for now")
