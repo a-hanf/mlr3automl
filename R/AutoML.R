@@ -30,6 +30,7 @@
 #'   Runs the AutoML system. The trained model is saved in the $learner slot.
 #' @import checkmate
 #' @import mlr3
+#' @import mlr3hyperband
 #' @import mlr3learners
 #' @import mlr3oml
 #' @import mlr3pipelines
