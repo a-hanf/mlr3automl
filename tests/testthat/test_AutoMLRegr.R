@@ -1,5 +1,4 @@
 test_that("basic examples work", {
-
   test_regression_task = function(task_type, task_id, min_performance) {
     task = tsk(task_type, task_id)
     model = AutoML(task)

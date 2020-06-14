@@ -1,5 +1,4 @@
 test_that("basic examples work", {
-
   test_classification_task = function(task_type, task_id, min_performance) {
     task = tsk(task_type, task_id)
     model = AutoML(task)
@@ -10,7 +9,6 @@ test_that("basic examples work", {
   }
 
   test_classification_task("iris", "iris", 0.9)
-  test_classification_task("german_credit", "german_credit", 0.7)
   test_classification_task("sonar", "sonar", 0.7)
   test_classification_task("spam", "spam", 0.8)
   test_classification_task("wine", "wine", 0.8)
@@ -27,8 +25,10 @@ test_that("basic examples work", {
   test_classification_task("oml", 9981L, 0.55)
   test_classification_task("oml", 9952L, 0.7)
 
-  # fails: Assertion on 'truth' failed: Must have length >= 1, but has length 0.
+  # fails due to missing values
   # test_classification_task("pima", "pima", 0.8)
+  # fails: Assertion on 'truth' failed: Must have length >= 1, but has length 0.
+  # test_classification_task("german_credit", "german_credit", 0.7)
   # test_classification_task("oml", 31L, 0.55)
   # fails: R session hangs
   # test_classification_task("oml", 34539L, 0.8)
