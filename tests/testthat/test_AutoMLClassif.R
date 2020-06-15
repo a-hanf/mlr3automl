@@ -29,7 +29,6 @@ test_that("basic examples work", {
   # test_classification_task("pima", "pima", 0.8)
   # fails: Assertion on 'truth' failed: Must have length >= 1, but has length 0.
   # test_classification_task("german_credit", "german_credit", 0.7)
-  # test_classification_task("oml", 31L, 0.55)
   # fails: R session hangs
   # test_classification_task("oml", 34539L, 0.8)
 })
