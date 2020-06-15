@@ -22,9 +22,13 @@ AutoMLClassif = R6Class(
         # svm = private$.create_robust_learner("classif.svm"),
       ))
       plot(pipeline)
-      return(AutoTuner$new(GraphLearner$new(pipeline, task_type = "classif"),
-                           self$resampling, self$measures, self$param_set,
-                           self$tuning_terminator, self$tuner))
+      graph_learner = GraphLearner$new(pipeline, task_type = "classif")
+      if (self$encapsulate) {
+        graph_learner$encapsulate = c(train = "evaluate", predict = "evaluate")
+        graph_learner$fallback = lrn("classif.featureless")
+      }
+      return(AutoTuner$new(graph_learner, self$resampling, self$measures,
+                           self$param_set, self$tuning_terminator, self$tuner))
     },
     .create_robust_learner = function(learner_name) {
       pipeline = pipeline_robustify(

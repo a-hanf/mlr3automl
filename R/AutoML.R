@@ -60,8 +60,10 @@ AutoMLBase = R6Class("AutoMLBase",
     param_set = NULL,
     tuning_terminator = NULL,
     tuner = NULL,
+    encapsulate = NULL,
     initialize = function(task, learner = NULL, resampling = NULL,
-                          measures = NULL, param_set = NULL, terminator = NULL) {
+                          measures = NULL, param_set = NULL,
+                          terminator = NULL, encapsulate = FALSE) {
       assert_task(task)
       if (!is.null(resampling)) assert_resampling(resampling)
       if (!is.null(measures)) assert_measures(measures)
@@ -72,6 +74,7 @@ AutoMLBase = R6Class("AutoMLBase",
       self$resampling = resampling %??% rsmp("holdout", ratio = 0.8)
       self$tuning_terminator = terminator %??% term("evals", n_evals = 10)
       self$tuner = tnr("random_search")
+      self$encapsulate = encapsulate
     },
     train = function(row_ids = NULL) {
       self$learner$train(self$task, row_ids)
