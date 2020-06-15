@@ -89,6 +89,9 @@ AutoMLBase = R6Class("AutoMLBase",
                                        outer_resampling, store_models = TRUE)
       self$learner = resample_result$learners[[1]]
       return(resample_result)
+    },
+    tuned_params = function() {
+      return(self$learner$tuning_instance$archive$get_best())
     }
   )
 )
