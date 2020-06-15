@@ -78,6 +78,9 @@ AutoMLBase = R6Class("AutoMLBase",
     },
     train = function(row_ids = NULL) {
       self$learner$train(self$task, row_ids)
+      if (length(self$learner$learner$errors) > 0) {
+        warning("An error occured during training. Fallback learner was used!")
+      }
     },
     predict = function(data = NULL, row_ids = NULL) {
       if (is.null(data)) {
@@ -91,6 +94,9 @@ AutoMLBase = R6Class("AutoMLBase",
       resample_result = mlr3::resample(self$task, self$learner,
                                        outer_resampling, store_models = TRUE)
       self$learner = resample_result$learners[[1]]
+      if (length(self$learner$learner$errors) > 0) {
+        warning("An error occured during training. Fallback learner was used!")
+      }
       return(resample_result)
     },
     tuned_params = function() {
@@ -111,15 +117,15 @@ AutoMLBase = R6Class("AutoMLBase",
 #' automl_object = AutoML(tsk("iris"))
 #' }
 AutoML = function(task, learner = NULL, resampling = NULL, measures = NULL,
-                   param_set = NULL, terminator = NULL) {
+                   param_set = NULL, terminator = NULL, encapsulate = FALSE) {
   if (class(task)[[1]] == "TaskClassif") {
     task$col_roles$stratum = task$col_info$id[task$col_info$type == "factor"]
-    return(AutoMLClassif$new(task, learner, resampling,
-                             measures, param_set, terminator))
+    return(AutoMLClassif$new(task, learner, resampling, measures,
+                             param_set, terminator, encapsulate))
   } else if (class(task)[[1]] == "TaskRegr") {
     task$col_roles$stratum = task$col_info$id[task$col_info$type == "factor"]
-    return(AutoMLRegr$new(task, learner, resampling,
-                          measures, param_set, terminator))
+    return(AutoMLRegr$new(task, learner, resampling, measures,
+                          param_set, terminator, encapsulate))
   } else {
     stop("mlr3automl only supports classification and regression tasks for now")
   }
