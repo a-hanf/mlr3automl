@@ -17,6 +17,8 @@ Imports:
     mlr3,
     mlr3pipelines,
     mlr3tuning,
+    mlr3learners,
+    mlr3oml,
     paradox,
     R6
 Suggests: 
