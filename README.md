@@ -5,7 +5,7 @@ The project started in April 2020 and is supposed to be working in October 2020.
 
 ## Installation
 
-`devtools::install_github(https://github.com/a-hanf/mlr3automl)`
+`devtools::install_github('https://github.com/a-hanf/mlr3automl')`
 
 ## Using mlr3automl
 
