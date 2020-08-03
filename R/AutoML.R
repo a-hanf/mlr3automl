@@ -100,7 +100,7 @@ AutoMLBase = R6Class("AutoMLBase",
       return(resample_result)
     },
     tuned_params = function() {
-      return(self$learner$tuning_instance$archive$get_best())
+      return(self$learner$tuning_instance$archive$best())
     }
   )
 )

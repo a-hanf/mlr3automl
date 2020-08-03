@@ -5,7 +5,7 @@
 \title{Interface function for mlr3automl}
 \usage{
 AutoML(task, learner = NULL, resampling = NULL, measures = NULL,
-  param_set = NULL, terminator = NULL)
+  param_set = NULL, terminator = NULL, encapsulate = FALSE)
 }
 \value{
 ['AutoMLClassif' | 'AutoMLRegr']

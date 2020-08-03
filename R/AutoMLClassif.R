@@ -23,7 +23,7 @@ AutoMLClassif = R6Class(
         # svm = private$.create_robust_learner("classif.svm"),
       ))
       plot(pipeline)
-      graph_learner = GraphLearner$new(pipeline, task_type = "classif")
+      graph_learner = GraphLearner$new(pipeline, task_type = "classif", predict_type = "prob")
       if (self$encapsulate) {
         graph_learner$encapsulate = c(train = "evaluate", predict = "evaluate")
         graph_learner$fallback = lrn("classif.featureless")
@@ -40,7 +40,7 @@ AutoMLClassif = R6Class(
       # pipeline = pipeline %>>% po("subsample")
       pipeline$set_names(pipeline$ids(),
                          paste(learner_name, pipeline$ids(), sep = "."))
-      return(pipeline %>>% po("learner", lrn(learner_name)))
+      return(pipeline %>>% po("learner", lrn(learner_name, predict_type = "prob")))
     },
     .get_default_param_set = function() {
       # TODO: create parameter space dynamically instead of hardcoding
