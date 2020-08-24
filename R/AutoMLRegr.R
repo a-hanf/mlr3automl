@@ -8,19 +8,23 @@ AutoMLRegr = R6Class(
       checkmate::assert_r6(task, "TaskRegr")
       super$initialize(task, learner, resampling, measures,
                        param_set, terminator, encapsulate)
-      self$param_set = param_set %??% private$.get_default_param_set()
       self$measures = measures %??% mlr_measures$get("regr.mae")
-      self$learner = learner %??% private$.get_default_learner()
-    }
+      if (is.null(learner)) {
+        self$param_set = private$.get_default_param_set('regr.ranger')
+        self$learner = private$.get_default_learner('regr.ranger')
+      } else {
+        self$param_set = private$.get_default_param_set(learner)
+        self$learner = private$.get_default_learner(learner)
+      }    }
   ),
   private = list(
-    .get_default_learner = function() {
-      pipeline = ppl("branch", graphs = list(
-        decision_tree = private$.create_robust_learner("regr.rpart"),
-        random_forest = private$.create_robust_learner("regr.ranger"),
-        xgboost = private$.create_robust_learner("regr.xgboost")
-      ))
-      plot(pipeline)
+    .get_default_learner = function(learner_list) {
+      learners = list()
+      for (learner in learner_list) {
+        learners = append(learners, private$.create_robust_learner(learner))
+      }
+      names(learners) = learner_list
+      pipeline = ppl("branch", graphs = learners)
       graph_learner = GraphLearner$new(pipeline, task_type = "regr")
       if (self$encapsulate) {
         graph_learner$encapsulate = c(train = "evaluate", predict = "evaluate")
@@ -40,47 +44,19 @@ AutoMLRegr = R6Class(
                          paste(learner_name, pipeline$ids(), sep = "."))
       return(pipeline %>>% po("learner", lrn(learner_name)))
     },
-    .get_default_param_set = function() {
+    .get_default_param_set = function(learner_list) {
       # TODO: create parameter space dynamically instead of hardcoding
+      # Subsampling is only needed for Hyperband
       ps = ParamSet$new(list(
-        ParamFct$new("branch.selection",
-                     c("decision_tree", "random_forest", "xgboost")),
-        # Subsampling is only needed for Hyperband
-        # ParamDbl$new("regr.rpart.subsample.frac", lower = 0.1, upper = 1, tags = c("budget", "decision_tree")),
-        ParamInt$new("regr.rpart.minsplit", lower = 1,
-                     upper = dim(self$task$data())[1], tags = "decision_tree"),
-        ParamDbl$new(
-          "regr.rpart.cp", lower = 0, upper = 1, tags = "decision_tree"),
-
-        # ParamDbl$new("regr.ranger.subsample.frac", lower = 0.1, upper = 1, tags = c("budget", "random_forest")),
+        ParamFct$new("branch.selection", learner_list),
         ParamInt$new("regr.ranger.mtry", lower = 1,
-                     upper = length(self$task$feature_names), tags = "random_forest"),
-
-        # ParamDbl$new("regr.xgboost.subsample.frac", lower = 0.1, upper = 1, tags = c("budget", "xgboost")),
-        ParamInt$new(
-          "regr.xgboost.nrounds", lower = 1, upper = 200, tags = "xgboost"),
-        ParamDbl$new(
-          "regr.xgboost.eta", lower = 0, upper = 1, tags = "xgboost"),
-        ParamDbl$new(
-          "regr.xgboost.gamma", lower = 0, upper = 5, tags = "xgboost")
+                     upper = length(self$task$feature_names), tags = "regr.ranger"),
+        ParamFct$new("regr.ranger.splitrule", c("variance", "extratrees"), tags = "regr.ranger")
       ))
-      # ps$add_dep("regr.rpart.subsample.frac", "branch.selection", CondEqual$new("decision_tree"))
       ps$add_dep(
-        "regr.rpart.minsplit", "branch.selection", CondEqual$new("decision_tree"))
+        "regr.ranger.mtry", "branch.selection", CondEqual$new("regr.ranger"))
       ps$add_dep(
-        "regr.rpart.cp", "branch.selection", CondEqual$new("decision_tree"))
-
-      # ps$add_dep("regr.ranger.subsample.frac", "branch.selection", CondEqual$new("random_forest"))
-      ps$add_dep(
-        "regr.ranger.mtry", "branch.selection", CondEqual$new("random_forest"))
-
-      # ps$add_dep("regr.xgboost.subsample.frac", "branch.selection", CondEqual$new("xgboost"))
-      ps$add_dep(
-        "regr.xgboost.nrounds", "branch.selection", CondEqual$new("xgboost"))
-      ps$add_dep(
-        "regr.xgboost.eta", "branch.selection", CondEqual$new("xgboost"))
-      ps$add_dep(
-        "regr.xgboost.gamma", "branch.selection", CondEqual$new("xgboost"))
+        "regr.ranger.splitrule", "branch.selection", CondEqual$new("regr.ranger"))
       return(ps)
     }
   )
