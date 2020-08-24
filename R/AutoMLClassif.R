@@ -8,21 +8,24 @@ AutoMLClassif = R6Class(
       checkmate::assert_r6(task, "TaskClassif")
       super$initialize(task, learner, resampling, measures,
                        param_set, terminator, encapsulate)
-      self$param_set = param_set %??% private$.get_default_param_set()
       self$measures = measures %??% mlr_measures$get("classif.acc")
-      self$learner = learner %??% private$.get_default_learner()
+      if (is.null(learner)) {
+        self$param_set = private$.get_default_param_set('classif.ranger')
+        self$learner = private$.get_default_learner('classif.ranger')
+      } else {
+        self$param_set = private$.get_default_param_set(learner)
+        self$learner = private$.get_default_learner(learner)
+      }
     }
   ),
   private = list(
-    .get_default_learner = function() {
-      pipeline = ppl("branch", graphs = list(
-        decision_tree = private$.create_robust_learner("classif.rpart"),
-        random_forest = private$.create_robust_learner("classif.ranger"),
-        xgboost = private$.create_robust_learner("classif.xgboost")
-        # svm has some weird issues with factors
-        # svm = private$.create_robust_learner("classif.svm"),
-      ))
-      plot(pipeline)
+    .get_default_learner = function(learner_list) {
+      learners = list()
+      for (learner in learner_list) {
+        learners = append(learners, private$.create_robust_learner(learner))
+      }
+      names(learners) = learner_list
+      pipeline = ppl("branch", graphs = learners)
       graph_learner = GraphLearner$new(pipeline, task_type = "classif", predict_type = "prob")
       if (self$encapsulate) {
         graph_learner$encapsulate = c(train = "evaluate", predict = "evaluate")
@@ -42,48 +45,19 @@ AutoMLClassif = R6Class(
                          paste(learner_name, pipeline$ids(), sep = "."))
       return(pipeline %>>% po("learner", lrn(learner_name, predict_type = "prob")))
     },
-    .get_default_param_set = function() {
+    .get_default_param_set = function(learner_list) {
       # TODO: create parameter space dynamically instead of hardcoding
       # Subsampling is only needed for Hyperband
       ps = ParamSet$new(list(
-        ParamFct$new("branch.selection",
-                     c("decision_tree", "random_forest", "xgboost")),
-        # Subsampling is only needed for Hyperband
-        # ParamDbl$new("classif.rpart.subsample.frac", lower = 0.1, upper = 1, tags = c("budget", "decision_tree")),
-        ParamInt$new("classif.rpart.minsplit", lower = 1,
-                     upper = dim(self$task$data())[1], tags = "decision_tree"),
-        ParamDbl$new(
-          "classif.rpart.cp", lower = 0, upper = 1, tags = "decision_tree"),
-
-        # ParamDbl$new("classif.ranger.subsample.frac", lower = 0.1, upper = 1, tags = c("budget", "random_forest")),
+        ParamFct$new("branch.selection", learner_list),
         ParamInt$new("classif.ranger.mtry", lower = 1,
-                     upper = length(self$task$feature_names), tags = "random_forest"),
-
-        # ParamDbl$new("classif.xgboost.subsample.frac", lower = 0.1, upper = 1, tags = c("budget", "xgboost")),
-        ParamInt$new(
-          "classif.xgboost.nrounds", lower = 1, upper = 200, tags = "xgboost"),
-        ParamDbl$new(
-          "classif.xgboost.eta", lower = 0, upper = 1, tags = "xgboost"),
-        ParamDbl$new(
-          "classif.xgboost.gamma", lower = 0, upper = 5, tags = "xgboost")
+                     upper = length(self$task$feature_names), tags = "classif.ranger"),
+        ParamFct$new("classif.ranger.splitrule", c("gini", "extratrees"), tags = "classif.ranger")
       ))
-      # ps$add_dep("classif.rpart.subsample.frac", "branch.selection", CondEqual$new("decision_tree"))
       ps$add_dep(
-        "classif.rpart.minsplit", "branch.selection", CondEqual$new("decision_tree"))
+        "classif.ranger.mtry", "branch.selection", CondEqual$new("classif.ranger"))
       ps$add_dep(
-        "classif.rpart.cp", "branch.selection", CondEqual$new("decision_tree"))
-
-      # ps$add_dep("classif.ranger.subsample.frac", "branch.selection", CondEqual$new("random_forest"))
-      ps$add_dep(
-        "classif.ranger.mtry", "branch.selection", CondEqual$new("random_forest"))
-
-      # ps$add_dep("classif.xgboost.subsample.frac", "branch.selection", CondEqual$new("xgboost"))
-      ps$add_dep(
-        "classif.xgboost.nrounds", "branch.selection", CondEqual$new("xgboost"))
-      ps$add_dep(
-        "classif.xgboost.eta", "branch.selection", CondEqual$new("xgboost"))
-      ps$add_dep(
-        "classif.xgboost.gamma", "branch.selection", CondEqual$new("xgboost"))
+        "classif.ranger.splitrule", "branch.selection", CondEqual$new("classif.ranger"))
       return(ps)
     }
   )

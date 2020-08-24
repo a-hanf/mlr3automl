@@ -1,14 +1,15 @@
 test_that("basic examples work", {
-  test_classification_task = function(task_type, task_id, min_performance) {
+  test_classification_task = function(task_type, task_id, min_performance, learners = NULL) {
     task = tsk(task_type, task_id)
-    model = AutoML(task)
+    model = AutoML(task, learner = learners)
     result = model$resample()
-    expect_gt(model$learner$model$tuning_instance$result$perf, min_performance)
     expect_gt(result$aggregate(model$measures), min_performance)
     invisible(NULL)
   }
 
   test_classification_task("iris", "iris", 0.9)
+  test_classification_task("iris", "iris", 0.9, c("classif.ranger", "classif.xgboost"))
+
   test_classification_task("sonar", "sonar", 0.7)
   test_classification_task("spam", "spam", 0.8)
   test_classification_task("wine", "wine", 0.8)
