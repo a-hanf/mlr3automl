@@ -36,11 +36,22 @@ AutoMLClassif = R6Class(
         task = self$task,
         learner = lrn(learner_name)
       )
-      # subsampling rate is a fidelity parameter in Hyperband (not working yet)
-      # pipeline = pipeline %>>% po("subsample")
       pipeline$set_names(pipeline$ids(),
                          paste(learner_name, pipeline$ids(), sep = "."))
-      return(pipeline %>>% po("learner", lrn(learner_name, predict_type = "prob")))
+      if (learner_name == 'classif.ranger') private$.set_mtry_for_random_forest(pipeline)
+
+      pipeline = pipeline %>>% po("learner", lrn(learner_name, predict_type = "prob"))
+      return(pipeline)
+    },
+    .set_mtry_for_random_forest = function(pipeline) {
+      pipe_copy = pipeline$clone(deep = TRUE) %>>% lrn('classif.ranger', num.trees = 1)
+      pipe_copy$train(self$task)
+      num_effective_vars = length(pipe_copy$state$classif.ranger$train_task$feature_names)
+      self$param_set$add(
+        ParamDbl$new("classif.ranger.mtry", lower = floor(num_effective_vars^0.1),
+                     upper = floor(num_effective_vars^0.9), tags = "classif.ranger"))
+      self$param_set$add_dep(
+        "classif.ranger.mtry", "branch.selection", CondEqual$new("classif.ranger"))
     },
     .get_default_param_set = function(learner_list) {
       ps = ParamSet$new(list(
