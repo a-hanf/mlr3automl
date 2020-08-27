@@ -22,7 +22,6 @@ AutoMLClassif = R6Class(
       }
       names(learners) = learner_list
       pipeline = ppl("branch", graphs = learners)
-      plot(pipeline)
       graph_learner = GraphLearner$new(pipeline, task_type = "classif", predict_type = "prob")
       if (self$encapsulate) {
         graph_learner$encapsulate = c(train = "evaluate", predict = "evaluate")
