@@ -2,20 +2,17 @@ AutoMLRegr = R6Class(
   "AutoMLRegr",
   inherit = AutoMLBase,
   public = list(
-    initialize = function(task, learner = NULL, resampling = NULL,
+    initialize = function(task, learner_list = NULL, resampling = NULL,
                           measures = NULL, param_set = NULL, terminator = NULL,
                           encapsulate = FALSE) {
       checkmate::assert_r6(task, "TaskRegr")
-      super$initialize(task, learner, resampling, measures,
+      super$initialize(task, learner_list, resampling, measures,
                        param_set, terminator, encapsulate)
       self$measures = measures %??% mlr_measures$get("regr.mae")
-      if (is.null(learner)) {
-        self$param_set = private$.get_default_param_set('regr.ranger')
-        self$learner = private$.get_default_learner('regr.ranger')
-      } else {
-        self$param_set = private$.get_default_param_set(learner)
-        self$learner = private$.get_default_learner(learner)
-      }    }
+      model$learner_list = learner_list %??% c('regr.ranger')
+      self$param_set = private$.get_default_param_set(model$learner_list)
+      self$learner = private$.get_default_learner(model$learner_list)
+    }
   ),
   private = list(
     .get_default_learner = function(learner_list) {

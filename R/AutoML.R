@@ -16,6 +16,10 @@
 #' @section Fields:
 #' * `task` :: `Task` object from `mlr3` \cr
 #'   Contains the data and some meta-features (like the target variable)
+#' * `learner_list` :: `List` of names for `mlr3 Learners` \cr
+#'   Can be used to customize the learners to be tuned over. If no parameter space
+#'   is defined for the selected learner, it will be run with default parameters.
+#'   Might break mlr3automl if the learner is incompatible with the provided task
 #' * `learner` :: `GraphLearner` object from `mlr3pipelines` \cr
 #'   Contains the machine learning pipeline with preprocessing and multiple learners
 #' * `resampling` :: `Resampling` object from `mlr3tuning` \cr
@@ -54,6 +58,7 @@
 AutoMLBase = R6Class("AutoMLBase",
   public = list(
     task = NULL,
+    learner_list = NULL,
     learner = NULL,
     resampling = NULL,
     measures = NULL,
@@ -61,10 +66,13 @@ AutoMLBase = R6Class("AutoMLBase",
     tuning_terminator = NULL,
     tuner = NULL,
     encapsulate = NULL,
-    initialize = function(task, learner = NULL, resampling = NULL,
+    initialize = function(task, learner_list = NULL, resampling = NULL,
                           measures = NULL, param_set = NULL,
-                          terminator = NULL, encapsulate = FALSE) {
+                          terminator = NULL, encapsulate = TRUE) {
       assert_task(task)
+      for (learner in learner_list) {
+        expect_true(learner %in% mlr_learners$keys())
+      }
       if (!is.null(resampling)) assert_resampling(resampling)
       if (!is.null(measures)) assert_measures(measures)
       if (!is.null(param_set)) assert_param_set(param_set)
@@ -116,15 +124,15 @@ AutoMLBase = R6Class("AutoMLBase",
 #' \dontrun{
 #' automl_object = AutoML(tsk("iris"))
 #' }
-AutoML = function(task, learner = NULL, resampling = NULL, measures = NULL,
+AutoML = function(task, learner_list = NULL, resampling = NULL, measures = NULL,
                    param_set = NULL, terminator = NULL, encapsulate = FALSE) {
   if (class(task)[[1]] == "TaskClassif") {
     task$col_roles$stratum = task$col_info$id[task$col_info$type == "factor"]
-    return(AutoMLClassif$new(task, learner, resampling, measures,
+    return(AutoMLClassif$new(task, learner_list, resampling, measures,
                              param_set, terminator, encapsulate))
   } else if (class(task)[[1]] == "TaskRegr") {
     task$col_roles$stratum = task$col_info$id[task$col_info$type == "factor"]
-    return(AutoMLRegr$new(task, learner, resampling, measures,
+    return(AutoMLRegr$new(task, learner_list, resampling, measures,
                           param_set, terminator, encapsulate))
   } else {
     stop("mlr3automl only supports classification and regression tasks for now")

@@ -2,20 +2,16 @@ AutoMLClassif = R6Class(
   "AutoMLClassif",
   inherit = AutoMLBase,
   public = list(
-    initialize = function(task, learner = NULL, resampling = NULL,
+    initialize = function(task, learner_list = NULL, resampling = NULL,
                           measures = NULL, param_set = NULL, terminator = NULL,
-                          encapsulate = FALSE){
+                          encapsulate = FALSE) {
       checkmate::assert_r6(task, "TaskClassif")
-      super$initialize(task, learner, resampling, measures,
+      super$initialize(task, learner_list, resampling, measures,
                        param_set, terminator, encapsulate)
       self$measures = measures %??% mlr_measures$get("classif.acc")
-      if (is.null(learner)) {
-        self$param_set = private$.get_default_param_set('classif.ranger')
-        self$learner = private$.get_default_learner('classif.ranger')
-      } else {
-        self$param_set = private$.get_default_param_set(learner)
-        self$learner = private$.get_default_learner(learner)
-      }
+      model$learner_list = learner_list %??% c('classif.ranger')
+      self$param_set = private$.get_default_param_set(model$learner_list)
+      self$learner = private$.get_default_learner(model$learner_list)
     }
   ),
   private = list(
@@ -26,6 +22,7 @@ AutoMLClassif = R6Class(
       }
       names(learners) = learner_list
       pipeline = ppl("branch", graphs = learners)
+      plot(pipeline)
       graph_learner = GraphLearner$new(pipeline, task_type = "classif", predict_type = "prob")
       if (self$encapsulate) {
         graph_learner$encapsulate = c(train = "evaluate", predict = "evaluate")
@@ -46,16 +43,10 @@ AutoMLClassif = R6Class(
       return(pipeline %>>% po("learner", lrn(learner_name, predict_type = "prob")))
     },
     .get_default_param_set = function(learner_list) {
-      # TODO: create parameter space dynamically instead of hardcoding
-      # Subsampling is only needed for Hyperband
       ps = ParamSet$new(list(
         ParamFct$new("branch.selection", learner_list),
-        ParamInt$new("classif.ranger.mtry", lower = 1,
-                     upper = length(self$task$feature_names), tags = "classif.ranger"),
         ParamFct$new("classif.ranger.splitrule", c("gini", "extratrees"), tags = "classif.ranger")
       ))
-      ps$add_dep(
-        "classif.ranger.mtry", "branch.selection", CondEqual$new("classif.ranger"))
       ps$add_dep(
         "classif.ranger.splitrule", "branch.selection", CondEqual$new("classif.ranger"))
       return(ps)
