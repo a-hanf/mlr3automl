@@ -9,9 +9,9 @@ AutoMLClassif = R6Class(
       super$initialize(task, learner_list, resampling, measures,
                        param_set, terminator, encapsulate)
       self$measures = measures %??% mlr_measures$get("classif.acc")
-      model$learner_list = learner_list %??% c('classif.ranger')
-      self$param_set = private$.get_default_param_set(model$learner_list)
-      self$learner = private$.get_default_learner(model$learner_list)
+      self$learner_list = learner_list %??% c('classif.ranger')
+      self$param_set = private$.get_default_param_set(self$learner_list)
+      self$learner = private$.get_default_learner(self$learner_list)
     }
   ),
   private = list(
@@ -47,8 +47,8 @@ AutoMLClassif = R6Class(
       pipe_copy$train(self$task)
       num_effective_vars = length(pipe_copy$state$classif.ranger$train_task$feature_names)
       self$param_set$add(
-        ParamDbl$new("classif.ranger.mtry", lower = floor(num_effective_vars^0.1),
-                     upper = floor(num_effective_vars^0.9), tags = "classif.ranger"))
+        ParamInt$new("classif.ranger.mtry", lower = as.integer(num_effective_vars^0.1),
+                     upper = as.integer(num_effective_vars^0.9), tags = "classif.ranger"))
       self$param_set$add_dep(
         "classif.ranger.mtry", "branch.selection", CondEqual$new("classif.ranger"))
     },
