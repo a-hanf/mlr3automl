@@ -39,13 +39,13 @@ AutoMLRegr = R6Class(
                          paste(learner_name, pipeline$ids(), sep = "."))
       if (learner_name == 'regr.ranger') private$.set_mtry_for_random_forest(pipeline)
 
-      pipeline = pipeline %>>% po("learner", lrn(learner_name, predict_type = "prob"))
+      pipeline = pipeline %>>% po("learner", lrn(learner_name))
       return(pipeline)
     },
     .set_mtry_for_random_forest = function(pipeline) {
       pipe_copy = pipeline$clone(deep = TRUE) %>>% lrn('regr.ranger', num.trees = 1)
       pipe_copy$train(self$task)
-      num_effective_vars = length(pipe_copy$state$classif.ranger$train_task$feature_names)
+      num_effective_vars = length(pipe_copy$state$regr.ranger$train_task$feature_names)
       self$param_set$add(
         ParamInt$new("regr.ranger.mtry", lower = as.integer(num_effective_vars^0.1),
                      upper = as.integer(num_effective_vars^0.9), tags = "regr.ranger"))
@@ -57,12 +57,8 @@ AutoMLRegr = R6Class(
       # Subsampling is only needed for Hyperband
       ps = ParamSet$new(list(
         ParamFct$new("branch.selection", learner_list),
-        ParamInt$new("regr.ranger.mtry", lower = 1,
-                     upper = length(self$task$feature_names), tags = "regr.ranger"),
         ParamFct$new("regr.ranger.splitrule", c("variance", "extratrees"), tags = "regr.ranger")
       ))
-      ps$add_dep(
-        "regr.ranger.mtry", "branch.selection", CondEqual$new("regr.ranger"))
       ps$add_dep(
         "regr.ranger.splitrule", "branch.selection", CondEqual$new("regr.ranger"))
       return(ps)
