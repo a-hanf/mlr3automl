@@ -79,7 +79,7 @@ AutoMLBase = R6Class("AutoMLBase",
       # FIXME: find / write assertion for terminator class
       # if (!is.null(terminator)) assert_terminator(terminator)
       self$task = task
-      self$resampling = resampling %??% rsmp("holdout", ratio = 0.8)
+      self$resampling = resampling %??% rsmp("holdout")
       self$tuning_terminator = terminator %??% trm('evals', n_evals = 10)
       self$tuner = tnr("random_search")
       self$encapsulate = encapsulate
@@ -125,9 +125,12 @@ AutoMLBase = R6Class("AutoMLBase",
 #' automl_object = AutoML(tsk("iris"))
 #' }
 AutoML = function(task, learner_list = NULL, resampling = NULL, measures = NULL,
-                   param_set = NULL, terminator = NULL, encapsulate = FALSE) {
+                   param_set = NULL, terminator = NULL, encapsulate = TRUE) {
   if (class(task)[[1]] == "TaskClassif") {
-    task$col_roles$stratum = task$col_info$id[task$col_info$type == "factor"]
+    target_is_factor = task$col_info[task$col_info$id == task$target_names, ]$type == "factor"
+    if (length(target_is_factor) == 1 && target_is_factor) {
+      task$col_roles$stratum = task$target_names
+    }
     return(AutoMLClassif$new(task, learner_list, resampling, measures,
                              param_set, terminator, encapsulate))
   } else if (class(task)[[1]] == "TaskRegr") {
