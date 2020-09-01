@@ -24,7 +24,7 @@ AutoMLClassif = R6Class(
       pipeline = ppl("branch", graphs = learners)
       graph_learner = GraphLearner$new(pipeline, task_type = "classif", predict_type = "prob")
       if (self$encapsulate) {
-        graph_learner$encapsulate = c(train = "evaluate", predict = "evaluate")
+        graph_learner$encapsulate = c(train = "callr", predict = "callr")
         graph_learner$fallback = lrn("classif.featureless")
       }
       return(AutoTuner$new(graph_learner, self$resampling, self$measures,
