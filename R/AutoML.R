@@ -65,24 +65,20 @@ AutoMLBase = R6Class("AutoMLBase",
     param_set = NULL,
     tuning_terminator = NULL,
     tuner = NULL,
-    encapsulate = NULL,
     initialize = function(task, learner_list = NULL, resampling = NULL,
-                          measures = NULL, param_set = NULL,
-                          terminator = NULL, encapsulate = TRUE) {
+                          measures = NULL, terminator = NULL) {
       assert_task(task)
       for (learner in learner_list) {
         expect_true(learner %in% mlr_learners$keys())
       }
       if (!is.null(resampling)) assert_resampling(resampling)
       if (!is.null(measures)) assert_measures(measures)
-      if (!is.null(param_set)) assert_param_set(param_set)
       # FIXME: find / write assertion for terminator class
       # if (!is.null(terminator)) assert_terminator(terminator)
       self$task = task
       self$resampling = resampling %??% rsmp("holdout")
       self$tuning_terminator = terminator %??% trm('evals', n_evals = 10)
       self$tuner = tnr("random_search")
-      self$encapsulate = encapsulate
     },
     train = function(row_ids = NULL) {
       self$learner$train(self$task, row_ids)
@@ -97,8 +93,8 @@ AutoMLBase = R6Class("AutoMLBase",
         return(self$learner$predict(data, row_ids))
       }
     },
-    resample = function(outer_resampling_holdout_ratio = 0.8) {
-      outer_resampling = rsmp("holdout", ratio = outer_resampling_holdout_ratio)
+    resample = function() {
+      outer_resampling = rsmp("holdout")
       resample_result = mlr3::resample(self$task, self$learner,
                                        outer_resampling, store_models = TRUE)
       self$learner = resample_result$learners[[1]]
@@ -125,18 +121,18 @@ AutoMLBase = R6Class("AutoMLBase",
 #' automl_object = AutoML(tsk("iris"))
 #' }
 AutoML = function(task, learner_list = NULL, resampling = NULL, measures = NULL,
-                   param_set = NULL, terminator = NULL, encapsulate = TRUE) {
-  if (class(task)[[1]] == "TaskClassif") {
+                  terminator = NULL) {
+  if (inherits(task, "TaskClassif")) {
+    # stratify target variable so that every target label appears
+    # in all folds while resampling
     target_is_factor = task$col_info[task$col_info$id == task$target_names, ]$type == "factor"
     if (length(target_is_factor) == 1 && target_is_factor) {
       task$col_roles$stratum = task$target_names
     }
     return(AutoMLClassif$new(task, learner_list, resampling, measures,
-                             param_set, terminator, encapsulate))
-  } else if (class(task)[[1]] == "TaskRegr") {
-    task$col_roles$stratum = task$col_info$id[task$col_info$type == "factor"]
-    return(AutoMLRegr$new(task, learner_list, resampling, measures,
-                          param_set, terminator, encapsulate))
+                             terminator))
+  } else if (inherits(task, "TaskRegr")) {
+    return(AutoMLRegr$new(task, learner_list, resampling, measures, terminator))
   } else {
     stop("mlr3automl only supports classification and regression tasks for now")
   }
