@@ -79,6 +79,8 @@ AutoMLBase = R6Class("AutoMLBase",
       self$resampling = resampling %??% rsmp("holdout")
       self$tuning_terminator = terminator %??% trm('evals', n_evals = 10)
       self$tuner = tnr("random_search")
+      self$param_set = private$.get_default_param_set()
+      self$learner = private$.get_default_learner()
     },
     train = function(row_ids = NULL) {
       self$learner$train(self$task, row_ids)
@@ -105,6 +107,83 @@ AutoMLBase = R6Class("AutoMLBase",
     },
     tuned_params = function() {
       return(self$learner$tuning_instance$archive$best())
+    }
+  ),
+  private = list(
+    .get_default_learner = function() {
+      learners = list()
+      for (learner in self$learner_list) {
+        learners = append(learners, private$.create_robust_learner(learner))
+      }
+      names(learners) = self$learner_list
+      pipeline = ppl("branch", graphs = learners)
+      if (inherits(self$task, "TaskClassif")) {
+        graph_learner = GraphLearner$new(pipeline, task_type = "classif", predict_type = "prob")
+      } else {
+        graph_learner = GraphLearner$new(pipeline, task_type = "regr")
+      }
+      # fallback learner is featureless learner for classification / regression
+      graph_learner$fallback = lrn(paste(self$task$task_type, '.featureless',
+                                         sep = ""))
+      # use callr encapsulation so we are able to kill model training, if it
+      # takes too long
+      graph_learner$encapsulate = c(train = "callr", predict = "callr")
+
+      return(AutoTuner$new(graph_learner, self$resampling, self$measures,
+                           self$param_set, self$tuning_terminator, self$tuner))
+    },
+    .create_robust_learner = function(learner_name) {
+      pipeline = pipeline_robustify(
+        task = self$task,
+        learner = lrn(learner_name)
+      )
+      # avoid name conflicts in pipeline
+      pipeline$set_names(pipeline$ids(),
+                         paste(learner_name, pipeline$ids(), sep = "."))
+      # mtry is set at runtime depending on the number of features
+      if (grepl('ranger', learner_name)) {
+        private$.set_mtry_for_random_forest(pipeline)
+      }
+
+      if (inherits(self$task, "TaskClassif")) {
+        return(pipeline %>>% po("learner", lrn(learner_name, predict_type = "prob")))
+      }
+      return(pipeline %>>% po("learner", lrn(learner_name)))
+    },
+    .set_mtry_for_random_forest = function(pipeline) {
+      # deep copy so we don't mess up the original pipeline
+      pipe_copy = pipeline$clone(deep = TRUE) %>>%
+        lrn(paste(self$task$task_type, '.featureless', sep = ""))
+      # train without an informative learner so we can see the output of the
+      # preprocessing pipeline
+      pipe_copy$train(self$task)
+      last_pipeop = pipe_copy$ids()[length(pipe_copy$ids())]
+      # get number of variables after encoding from input of final pipeop
+      num_effective_vars = length(get(last_pipeop, pipe_copy$state)$train_task$feature_names)
+      self$param_set$add(
+        ParamDbl$new(paste(self$task$task_type, ".ranger.mtry", sep = ""),
+                     lower = 0.1, upper = 0.9,
+                     tags = paste(self$task$task_type, ".ranger", sep = "")))
+      self$param_set$trafo = function(x, param_set) {
+        if (inherits(self$task, "TaskClassif")) {
+          proposed_mtry = as.integer(num_effective_vars^x$classif.ranger.mtry)
+          x$classif.ranger.mtry = min(max(1, proposed_mtry), 200)
+          return(x)
+        } else {
+          proposed_mtry = as.integer(num_effective_vars^x$regr.ranger.mtry)
+          x$regr.ranger.mtry = min(max(1, proposed_mtry), 200)
+          return(x)
+        }
+      }
+      self$param_set$add_dep(
+        paste(self$task$task_type, ".ranger.mtry", sep = ""), "branch.selection",
+        CondEqual$new(paste(self$task$task_type, ".ranger", sep = "")))
+    },
+    .get_default_param_set = function() {
+      ps = ParamSet$new(list(
+        ParamFct$new("branch.selection", self$learner_list)
+      ))
+      return(ps)
     }
   )
 )
