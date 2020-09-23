@@ -6,7 +6,7 @@ AutoMLRegr = R6Class(
                           measures = NULL, terminator = NULL){
       checkmate::assert_r6(task, "TaskRegr")
       self$measures = measures %??% mlr_measures$get("regr.mae")
-      self$learner_list = learner_list %??% c('regr.ranger')
+      self$learner_list = learner_list %??% c("regr.ranger", "regr.xgboost")
       super$initialize(task, learner_list, resampling, measures, terminator)
     }
   )
