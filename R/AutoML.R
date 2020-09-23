@@ -181,9 +181,15 @@ AutoMLBase = R6Class("AutoMLBase",
         CondEqual$new(paste(self$task$task_type, ".ranger", sep = "")))
     },
     .get_default_param_set = function() {
-      ps = ParamSet$new(list(
+      if (self$task$task_type == "classif") {
+        ps = default_classification_params()
+      } else {
+        ps = default_regression_params()
+      }
+
+      ps$add(
         ParamFct$new("branch.selection", self$learner_list)
-      ))
+      )
       return(ps)
     }
   )
