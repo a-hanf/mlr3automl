@@ -77,7 +77,8 @@ AutoMLBase = R6Class("AutoMLBase",
       # if (!is.null(terminator)) assert_terminator(terminator)
       self$task = task
       self$resampling = resampling %??% rsmp("holdout")
-      self$tuning_terminator = terminator %??% trm('evals', n_evals = 10)
+      self$tuning_terminator = terminator %??%
+        trm('combo', list(trm('run_time', secs = 60), trm('stagnation')))
       self$tuner = tnr("random_search")
       self$param_set = private$.get_default_param_set()
       self$learner = private$.get_default_learner()
