@@ -16,6 +16,10 @@
 #' @section Fields:
 #' * `task` :: `Task` object from `mlr3` \cr
 #'   Contains the data and some meta-features (like the target variable)
+#' * `learner_list` :: `List` of names for `mlr3 Learners` \cr
+#'   Can be used to customize the learners to be tuned over. If no parameter space
+#'   is defined for the selected learner, it will be run with default parameters.
+#'   Might break mlr3automl if the learner is incompatible with the provided task
 #' * `learner` :: `GraphLearner` object from `mlr3pipelines` \cr
 #'   Contains the machine learning pipeline with preprocessing and multiple learners
 #' * `resampling` :: `Resampling` object from `mlr3tuning` \cr
@@ -54,27 +58,30 @@
 AutoMLBase = R6Class("AutoMLBase",
   public = list(
     task = NULL,
+    learner_list = NULL,
     learner = NULL,
     resampling = NULL,
     measures = NULL,
     param_set = NULL,
     tuning_terminator = NULL,
     tuner = NULL,
-    encapsulate = NULL,
-    initialize = function(task, learner = NULL, resampling = NULL,
-                          measures = NULL, param_set = NULL,
-                          terminator = NULL, encapsulate = FALSE) {
+    initialize = function(task, learner_list = NULL, resampling = NULL,
+                          measures = NULL, terminator = NULL) {
       assert_task(task)
+      for (learner in learner_list) {
+        expect_true(learner %in% mlr_learners$keys())
+      }
       if (!is.null(resampling)) assert_resampling(resampling)
       if (!is.null(measures)) assert_measures(measures)
-      if (!is.null(param_set)) assert_param_set(param_set)
       # FIXME: find / write assertion for terminator class
       # if (!is.null(terminator)) assert_terminator(terminator)
       self$task = task
-      self$resampling = resampling %??% rsmp("holdout", ratio = 0.8)
-      self$tuning_terminator = terminator %??% trm('evals', n_evals = 10)
+      self$resampling = resampling %??% rsmp("holdout")
+      self$tuning_terminator = terminator %??%
+        trm('combo', list(trm('run_time', secs = 60), trm('stagnation')))
       self$tuner = tnr("random_search")
-      self$encapsulate = encapsulate
+      self$param_set = private$.get_default_param_set()
+      self$learner = private$.get_default_learner()
     },
     train = function(row_ids = NULL) {
       self$learner$train(self$task, row_ids)
@@ -89,8 +96,8 @@ AutoMLBase = R6Class("AutoMLBase",
         return(self$learner$predict(data, row_ids))
       }
     },
-    resample = function(outer_resampling_holdout_ratio = 0.8) {
-      outer_resampling = rsmp("holdout", ratio = outer_resampling_holdout_ratio)
+    resample = function() {
+      outer_resampling = rsmp("holdout")
       resample_result = mlr3::resample(self$task, self$learner,
                                        outer_resampling, store_models = TRUE)
       self$learner = resample_result$learners[[1]]
@@ -101,6 +108,83 @@ AutoMLBase = R6Class("AutoMLBase",
     },
     tuned_params = function() {
       return(self$learner$tuning_instance$archive$best())
+    }
+  ),
+  private = list(
+    .get_default_learner = function() {
+      learners = list()
+      for (learner in self$learner_list) {
+        learners = append(learners, private$.create_robust_learner(learner))
+      }
+      names(learners) = self$learner_list
+      pipeline = ppl("branch", graphs = learners)
+      if (inherits(self$task, "TaskClassif")) {
+        graph_learner = GraphLearner$new(pipeline, task_type = "classif", predict_type = "prob")
+      } else {
+        graph_learner = GraphLearner$new(pipeline, task_type = "regr")
+      }
+      # fallback learner is featureless learner for classification / regression
+      graph_learner$fallback = lrn(paste(self$task$task_type, '.featureless',
+                                         sep = ""))
+      # use callr encapsulation so we are able to kill model training, if it
+      # takes too long
+      graph_learner$encapsulate = c(train = "callr", predict = "callr")
+
+      return(AutoTuner$new(graph_learner, self$resampling, self$measures,
+                           self$param_set, self$tuning_terminator, self$tuner))
+    },
+    .create_robust_learner = function(learner_name) {
+      pipeline = pipeline_robustify(
+        task = self$task,
+        learner = lrn(learner_name)
+      )
+      # avoid name conflicts in pipeline
+      pipeline$set_names(pipeline$ids(),
+                         paste(learner_name, pipeline$ids(), sep = "."))
+      # mtry is set at runtime depending on the number of features
+      if (grepl('ranger', learner_name)) {
+        private$.set_mtry_for_random_forest(pipeline)
+      }
+
+      if (inherits(self$task, "TaskClassif")) {
+        return(pipeline %>>% po("learner", lrn(learner_name, predict_type = "prob")))
+      }
+      return(pipeline %>>% po("learner", lrn(learner_name)))
+    },
+    .set_mtry_for_random_forest = function(pipeline) {
+      # deep copy so we don't mess up the original pipeline
+      pipe_copy = pipeline$clone(deep = TRUE) %>>%
+        lrn(paste(self$task$task_type, '.featureless', sep = ""))
+      # train without an informative learner so we can see the output of the
+      # preprocessing pipeline
+      pipe_copy$train(self$task)
+      last_pipeop = pipe_copy$ids()[length(pipe_copy$ids())]
+      # get number of variables after encoding from input of final pipeop
+      num_effective_vars = length(get(last_pipeop, pipe_copy$state)$train_task$feature_names)
+      self$param_set$add(
+        ParamDbl$new(paste(self$task$task_type, ".ranger.mtry", sep = ""),
+                     lower = 0.1, upper = 0.9,
+                     tags = paste(self$task$task_type, ".ranger", sep = "")))
+      self$param_set$trafo = function(x, param_set) {
+        if (inherits(self$task, "TaskClassif")) {
+          proposed_mtry = as.integer(num_effective_vars^x$classif.ranger.mtry)
+          x$classif.ranger.mtry = min(max(1, proposed_mtry), 200)
+          return(x)
+        } else {
+          proposed_mtry = as.integer(num_effective_vars^x$regr.ranger.mtry)
+          x$regr.ranger.mtry = min(max(1, proposed_mtry), 200)
+          return(x)
+        }
+      }
+      self$param_set$add_dep(
+        paste(self$task$task_type, ".ranger.mtry", sep = ""), "branch.selection",
+        CondEqual$new(paste(self$task$task_type, ".ranger", sep = "")))
+    },
+    .get_default_param_set = function() {
+      ps = ParamSet$new(list(
+        ParamFct$new("branch.selection", self$learner_list)
+      ))
+      return(ps)
     }
   )
 )
@@ -116,16 +200,19 @@ AutoMLBase = R6Class("AutoMLBase",
 #' \dontrun{
 #' automl_object = AutoML(tsk("iris"))
 #' }
-AutoML = function(task, learner = NULL, resampling = NULL, measures = NULL,
-                   param_set = NULL, terminator = NULL, encapsulate = FALSE) {
-  if (class(task)[[1]] == "TaskClassif") {
-    task$col_roles$stratum = task$col_info$id[task$col_info$type == "factor"]
-    return(AutoMLClassif$new(task, learner, resampling, measures,
-                             param_set, terminator, encapsulate))
-  } else if (class(task)[[1]] == "TaskRegr") {
-    task$col_roles$stratum = task$col_info$id[task$col_info$type == "factor"]
-    return(AutoMLRegr$new(task, learner, resampling, measures,
-                          param_set, terminator, encapsulate))
+AutoML = function(task, learner_list = NULL, resampling = NULL, measures = NULL,
+                  terminator = NULL) {
+  if (inherits(task, "TaskClassif")) {
+    # stratify target variable so that every target label appears
+    # in all folds while resampling
+    target_is_factor = task$col_info[task$col_info$id == task$target_names, ]$type == "factor"
+    if (length(target_is_factor) == 1 && target_is_factor) {
+      task$col_roles$stratum = task$target_names
+    }
+    return(AutoMLClassif$new(task, learner_list, resampling, measures,
+                             terminator))
+  } else if (inherits(task, "TaskRegr")) {
+    return(AutoMLRegr$new(task, learner_list, resampling, measures, terminator))
   } else {
     stop("mlr3automl only supports classification and regression tasks for now")
   }
