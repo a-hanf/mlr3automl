@@ -50,6 +50,7 @@
 #' @import mlr3pipelines
 #' @import mlr3tuning
 #' @import paradox
+#' @import testthat
 #' @importFrom R6 R6Class
 #' @export
 #' @name AutoMLBase
@@ -69,7 +70,7 @@ AutoMLBase = R6Class("AutoMLBase",
                           measures = NULL, terminator = NULL) {
       assert_task(task)
       for (learner in learner_list) {
-        expect_true(learner %in% mlr_learners$keys())
+        testthat::expect_true(learner %in% mlr_learners$keys())
       }
       if (!is.null(resampling)) assert_resampling(resampling)
       if (!is.null(measures)) assert_measures(measures)
