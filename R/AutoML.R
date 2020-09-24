@@ -119,7 +119,7 @@ AutoMLBase = R6Class("AutoMLBase",
       }
       names(learners) = self$learner_list
       pipeline = ppl("branch", graphs = learners)
-      if (inherits(self$task, "TaskClassif")) {
+      if (self$task$task_type == "classif") {
         graph_learner = GraphLearner$new(pipeline, task_type = "classif", predict_type = "prob")
       } else {
         graph_learner = GraphLearner$new(pipeline, task_type = "regr")
@@ -147,7 +147,7 @@ AutoMLBase = R6Class("AutoMLBase",
         private$.set_mtry_for_random_forest(pipeline)
       }
 
-      if (inherits(self$task, "TaskClassif")) {
+      if (self$task$task_type == "classif") {
         return(pipeline %>>% po("learner", lrn(learner_name, predict_type = "prob")))
       }
       return(pipeline %>>% po("learner", lrn(learner_name)))
@@ -162,36 +162,19 @@ AutoMLBase = R6Class("AutoMLBase",
       last_pipeop = pipe_copy$ids()[length(pipe_copy$ids())]
       # get number of variables after encoding from input of final pipeop
       num_effective_vars = length(get(last_pipeop, pipe_copy$state)$train_task$feature_names)
-      self$param_set$add(
-        ParamDbl$new(paste(self$task$task_type, ".ranger.mtry", sep = ""),
-                     lower = 0.1, upper = 0.9,
-                     tags = paste(self$task$task_type, ".ranger", sep = "")))
-      self$param_set$trafo = function(x, param_set) {
-        if (inherits(self$task, "TaskClassif")) {
-          proposed_mtry = as.integer(num_effective_vars^x$classif.ranger.mtry)
-          x$classif.ranger.mtry = min(max(1, proposed_mtry), 200)
-          return(x)
-        } else {
-          proposed_mtry = as.integer(num_effective_vars^x$regr.ranger.mtry)
-          x$regr.ranger.mtry = min(max(1, proposed_mtry), 200)
-          return(x)
-        }
+      if (self$task$task_type == 'classif') {
+        self$param_set = add_mtry_to_classif_params(self$param_set, num_effective_vars)
+      } else {
+        self$param_set = add_mtry_to_regr_params(self$param_set, num_effective_vars)
       }
-      self$param_set$add_dep(
-        paste(self$task$task_type, ".ranger.mtry", sep = ""), "branch.selection",
-        CondEqual$new(paste(self$task$task_type, ".ranger", sep = "")))
+
     },
     .get_default_param_set = function() {
       if (self$task$task_type == "classif") {
-        ps = default_classification_params()
+        ps = default_classification_params(self$learner_list)
       } else {
-        ps = default_regression_params()
+        ps = default_regression_params(self$learner_list)
       }
-
-      ps$add(
-        ParamFct$new("branch.selection", self$learner_list)
-      )
-      return(ps)
     }
   )
 )
@@ -209,7 +192,7 @@ AutoMLBase = R6Class("AutoMLBase",
 #' }
 AutoML = function(task, learner_list = NULL, resampling = NULL, measures = NULL,
                   terminator = NULL) {
-  if (inherits(task, "TaskClassif")) {
+  if (task$task_type == "classif") {
     # stratify target variable so that every target label appears
     # in all folds while resampling
     target_is_factor = task$col_info[task$col_info$id == task$target_names, ]$type == "factor"
@@ -218,7 +201,7 @@ AutoML = function(task, learner_list = NULL, resampling = NULL, measures = NULL,
     }
     return(AutoMLClassif$new(task, learner_list, resampling, measures,
                              terminator))
-  } else if (inherits(task, "TaskRegr")) {
+  } else if (task$task_type == "regr") {
     return(AutoMLRegr$new(task, learner_list, resampling, measures, terminator))
   } else {
     stop("mlr3automl only supports classification and regression tasks for now")

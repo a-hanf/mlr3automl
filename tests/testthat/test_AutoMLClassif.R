@@ -28,10 +28,9 @@ test_that("basic examples work", {
   test_classification_task("oml", 145854L, 0.85)
   test_classification_task("oml", 14965L, 0.85)
   test_classification_task("oml", 9981L, 0.55)
-  test_classification_task("oml", 9952L, 0.7)
   test_classification_task("pima", "pima", 0.7)
 
   # fails: R session hangs
-  # test_classification_task("oml", 34539L, 0.8)
+  # test_classification_task("oml", 34539L, 0.95)
 })
 
