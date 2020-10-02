@@ -162,19 +162,12 @@ AutoMLBase = R6Class("AutoMLBase",
       last_pipeop = pipe_copy$ids()[length(pipe_copy$ids())]
       # get number of variables after encoding from input of final pipeop
       num_effective_vars = length(get(last_pipeop, pipe_copy$state)$train_task$feature_names)
-      if (self$task$task_type == 'classif') {
-        self$param_set = add_mtry_to_classif_params(self$param_set, num_effective_vars)
-      } else {
-        self$param_set = add_mtry_to_regr_params(self$param_set, num_effective_vars)
-      }
-
+      self$param_set = add_mtry_to_ranger_params(
+        self$param_set, num_effective_vars, self$task$task_type)
     },
     .get_default_param_set = function() {
-      if (self$task$task_type == "classif") {
-        ps = default_classification_params(self$learner_list)
-      } else {
-        ps = default_regression_params(self$learner_list)
-      }
+      ps = default_params(self$learner_list, self$task$task_type)
+      return(ps)
     }
   )
 )
