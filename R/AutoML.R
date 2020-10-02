@@ -77,7 +77,7 @@ AutoMLBase = R6Class("AutoMLBase",
       # FIXME: find / write assertion for terminator class
       # if (!is.null(terminator)) assert_terminator(terminator)
       self$task = task
-      self$resampling = resampling %??% rsmp("holdout")
+      self$resampling = resampling %??% rsmp("cv", folds = 3)
       self$tuning_terminator = terminator %??%
         trm('combo', list(trm('run_time', secs = 60), trm('stagnation')))
       self$tuner = tnr("random_search")
