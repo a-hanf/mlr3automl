@@ -48,9 +48,7 @@ add_xgboost_params = function(param_set, task_type) {
 
     # fidelity parameters
     ParamInt$new(paste(task_type, "xgboost.nrounds", sep = "."),
-                 lower = 10^6, upper = 10^6, default = 10^6, tags = "xgboost"),
-    ParamInt$new(paste(task_type, "xgboost.early_stopping_rounds", sep = "."),
-                 lower = 1, upper = 50, default = 10, tags = "xgboost"),
+                 lower = 1, upper = 1000, default = 1, tags = "xgboost"),
 
     # regularization parameters
     ParamDbl$new(paste(task_type, "xgboost.alpha", sep = "."),
