@@ -135,14 +135,20 @@ AutoMLBase = R6Class("AutoMLBase",
                            self$param_set, self$tuning_terminator, self$tuner))
     },
     .create_robust_learner = function(learner_name) {
-      pipeline = pipeline_robustify(
-        task = self$task,
-        learner = lrn(learner_name)
-      )
+      if (grepl("svm", learner_name)) {
+        pipeline = pipeline_robustify(task = self$task,
+                                      learner = lrn(learner_name),
+                                      factors_to_numeric = TRUE)
+      } else {
+        pipeline = pipeline_robustify(task = self$task,
+                                      learner = lrn(learner_name))
+      }
+
       # avoid name conflicts in pipeline
       pipeline$set_names(pipeline$ids(),
                          paste(learner_name, pipeline$ids(), sep = "."))
-      # mtry is set at runtime depending on the number of features
+
+      # mtry is set at runtime depending on the number of features after preprocessing
       if (grepl('ranger', learner_name)) {
         private$.set_mtry_for_random_forest(pipeline)
       }

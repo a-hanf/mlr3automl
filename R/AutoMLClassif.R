@@ -6,7 +6,7 @@ AutoMLClassif = R6Class(
                           measures = NULL, terminator = NULL) {
       checkmate::assert_r6(task, "TaskClassif")
       self$measures = measures %??% mlr_measures$get("classif.acc")
-      self$learner_list = learner_list %??% c("classif.ranger", "classif.xgboost")
+      self$learner_list = learner_list %??% c("classif.ranger", "classif.xgboost", "classif.svm")
       super$initialize(task, learner_list, resampling, measures, terminator)
     }
   )
