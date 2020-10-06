@@ -8,6 +8,10 @@ default_params = function(learner_list, task_type) {
     ps = add_xgboost_params(ps, task_type)
   }
 
+  if (any(grepl("cv_glmnet", learner_list))) {
+    ps = add_glmnet_params(ps, task_type)
+  }
+
   # trafo function can be safely set, if parameters are not used nothing happens
   ps$trafo = function(x, param_set) {
     x = xgboost_trafo(x, param_set, task_type)
@@ -113,5 +117,18 @@ add_mtry_to_ranger_params = function(param_set, num_effective_vars, task_type) {
                     "branch.selection",
                     CondEqual$new(paste(task_type, "ranger", sep = ".")))
 
+  return(param_set)
+}
+
+add_glmnet_params = function(param_set, task_type) {
+  param_set$add(
+    ParamDbl$new(paste(task_type, "cv_glmnet.alpha", sep = "."),
+                 lower = 0, upper = 1, default = 0, tags = "cv_glmnet"))
+
+  # only tune over these hyperparameters if glmnet branch is chosen
+  for (param in param_set$ids(tags = "cv_glmnet")) {
+    param_set$add_dep(param, "branch.selection",
+                      CondEqual$new(paste(task_type, "cv_glmnet", sep = ".")))
+  }
   return(param_set)
 }
