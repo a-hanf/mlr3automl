@@ -15,10 +15,17 @@ default_params = function(learner_list, task_type) {
     ps = add_svm_params(ps, task_type)
   }
 
+  for (learner in learner_list) {
+    if (grepl("svc", learner_list) || grepl("svr", learner_list)) {
+      ps = add_liblinear_params(ps, task_type, learner)
+    }
+  }
+
   # trafo function can be safely set, if parameters are not used nothing happens
   ps$trafo = function(x, param_set) {
     x = xgboost_trafo(x, param_set, task_type)
     x = svm_trafo(x, param_set, task_type)
+    x = liblinear_trafo(x, param_set, task_type)
   }
 
   return(ps)
@@ -166,5 +173,23 @@ add_svm_params = function(param_set, task_type) {
                       CondEqual$new(paste(task_type, "svm", sep = ".")))
   }
 
+  return(param_set)
+}
+
+liblinear_trafo = function(x, param_set, task_type) {
+  for (param in names(x)) {
+    if (grepl("svc.cost", param) || grepl("svr.cost", param)) {
+      x[[param]] = 2^(x[[param]])
+    }
+  }
+  return(x)
+}
+
+add_liblinear_params = function(param_set, task_type, learner) {
+  param_set$add(ParamDbl$new(paste(learner, "cost", sep = "."),
+                lower = -10, upper = 10, default = 0, tags = "liblinear"))
+  param_set$add_dep(paste(learner, "cost", sep = "."),
+                    "branch.selection",
+                    CondEqual$new(paste(learner, sep = ".")))
   return(param_set)
 }
