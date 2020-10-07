@@ -187,7 +187,7 @@ liblinear_trafo = function(x, param_set, task_type) {
 
 add_liblinear_params = function(param_set, task_type, learner) {
   param_set$add(ParamDbl$new(paste(learner, "cost", sep = "."),
-                lower = -10, upper = 10, default = 0, tags = "liblinear"))
+                lower = -10, upper = 3, default = 0, tags = "liblinear"))
   param_set$add_dep(paste(learner, "cost", sep = "."),
                     "branch.selection",
                     CondEqual$new(paste(learner, sep = ".")))
