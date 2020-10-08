@@ -12,9 +12,16 @@ default_params = function(learner_list, task_type) {
     ps = add_glmnet_params(ps, task_type)
   }
 
+  for (learner in learner_list) {
+    if (grepl("liblinear", learner)) {
+      ps = add_liblinear_params(ps, task_type, learner)
+    }
+  }
+
   # trafo function can be safely set, if parameters are not used nothing happens
   ps$trafo = function(x, param_set) {
     x = xgboost_trafo(x, param_set, task_type)
+    x = liblinear_trafo(x, param_set, task_type)
   }
 
   return(ps)
@@ -130,5 +137,23 @@ add_glmnet_params = function(param_set, task_type) {
     param_set$add_dep(param, "branch.selection",
                       CondEqual$new(paste(task_type, "cv_glmnet", sep = ".")))
   }
+  return(param_set)
+}
+
+liblinear_trafo = function(x, param_set, task_type) {
+  for (param in names(x)) {
+    if (grepl("liblinear.*cost", param)) {
+      x[[param]] = 2^(x[[param]])
+    }
+  }
+  return(x)
+}
+
+add_liblinear_params = function(param_set, task_type, learner) {
+  param_set$add(ParamDbl$new(paste(learner, "cost", sep = "."),
+                             lower = -10, upper = 3, default = 0, tags = "liblinear"))
+  param_set$add_dep(paste(learner, "cost", sep = "."),
+                    "branch.selection",
+                    CondEqual$new(paste(learner, sep = ".")))
   return(param_set)
 }
