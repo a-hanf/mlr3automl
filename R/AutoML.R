@@ -120,11 +120,8 @@ AutoMLBase = R6Class("AutoMLBase",
       }
       names(learners) = self$learner_list
       pipeline = ppl("branch", graphs = learners)
-      if (self$task$task_type == "classif") {
-        graph_learner = GraphLearner$new(pipeline, task_type = "classif", predict_type = "prob")
-      } else {
-        graph_learner = GraphLearner$new(pipeline, task_type = "regr")
-      }
+      graph_learner = GraphLearner$new(pipeline)
+
       # fallback learner is featureless learner for classification / regression
       graph_learner$fallback = lrn(paste(self$task$task_type, '.featureless',
                                          sep = ""))
@@ -163,12 +160,11 @@ AutoMLBase = R6Class("AutoMLBase",
              param_vals = list(affect_columns = selector_type(c("logical", "integer"))))
       }
 
-      # liblinear does not provide probability predictions, all other classification
-      # learners do
-      if (self$task$task_type == "classif" && !grepl("liblinear", learner_name)) {
+      # predict probabilities for classification if possible
+      if (self$task$task_type == "classif" && ("prob" %in% lrn(learner_name)$predict_types)) {
         return(pipeline %>>% po("learner", lrn(learner_name, predict_type = "prob")))
       }
-      # for regression learners or liblinear
+      # default: predict with type response
       return(pipeline %>>% po("learner", lrn(learner_name)))
     },
     .set_mtry_for_random_forest = function(pipeline) {
