@@ -88,6 +88,7 @@ AutoMLBase = R6Class("AutoMLBase",
       self$learner$train(self$task, row_ids)
       if (length(self$learner$learner$errors) > 0) {
         warning("An error occured during training. Fallback learner was used!")
+        print(self$learner$learner$errors)
       }
     },
     predict = function(data = NULL, row_ids = NULL) {
@@ -135,10 +136,18 @@ AutoMLBase = R6Class("AutoMLBase",
                            self$param_set, self$tuning_terminator, self$tuner))
     },
     .create_robust_learner = function(learner_name) {
-      pipeline = pipeline_robustify(
-        task = self$task,
-        learner = lrn(learner_name)
-      )
+      # Tree-based methods can handle factors and missing values natively
+      if (grepl("ranger", learner_name) || grepl("xgboost", learner_name)) {
+        pipeline = pipeline_robustify(task = self$task,
+                                      learner = lrn(learner_name))
+        # SVMs from e1071 and liblinear need imputation / encoding
+        # also good default setting for learners with unconfigured param spaces
+      } else {
+        pipeline = pipeline_robustify(task = self$task,
+                                      learner = lrn(learner_name),
+                                      impute_missings = TRUE,
+                                      factors_to_numeric = TRUE)
+      }
       # avoid name conflicts in pipeline
       pipeline$set_names(pipeline$ids(),
                          paste(learner_name, pipeline$ids(), sep = "."))
@@ -147,9 +156,19 @@ AutoMLBase = R6Class("AutoMLBase",
         private$.set_mtry_for_random_forest(pipeline)
       }
 
-      if (self$task$task_type == "classif") {
+      # liblinear only works with columns of type double. Convert ints / bools -> dbl
+      if (grepl('liblinear', learner_name)) {
+        pipeline = pipeline %>>%
+          po("colapply", applicator = as.numeric,
+             param_vals = list(affect_columns = selector_type(c("logical", "integer"))))
+      }
+
+      # liblinear does not provide probability predictions, all other classification
+      # learners do
+      if (self$task$task_type == "classif" && !grepl("liblinear", learner_name)) {
         return(pipeline %>>% po("learner", lrn(learner_name, predict_type = "prob")))
       }
+      # for regression learners or liblinear
       return(pipeline %>>% po("learner", lrn(learner_name)))
     },
     .set_mtry_for_random_forest = function(pipeline) {
