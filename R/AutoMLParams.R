@@ -1,3 +1,6 @@
+# the parameter ranges are based on
+# https://docs.google.com/spreadsheets/d/1A8r5RgMxtRrL3nHVtFhO94DMTJ6qwkoOiakm7qj1e4g
+
 default_params = function(learner_list, task_type) {
 
   # model is selected during tuning as a branch of the GraphLearner
@@ -11,7 +14,11 @@ default_params = function(learner_list, task_type) {
   if (any(grepl("cv_glmnet", learner_list))) {
     ps = add_glmnet_params(ps, task_type)
   }
-
+  
+  if (any(grepl("svm", learner_list))) {
+    ps = add_svm_params(ps, task_type)
+  }
+  
   for (learner in learner_list) {
     if (grepl("liblinear", learner)) {
       ps = add_liblinear_params(ps, task_type, learner)
@@ -21,6 +28,7 @@ default_params = function(learner_list, task_type) {
   # trafo function can be safely set, if parameters are not used nothing happens
   ps$trafo = function(x, param_set) {
     x = xgboost_trafo(x, param_set, task_type)
+    x = svm_trafo(x, param_set, task_type)
     x = liblinear_trafo(x, param_set, task_type)
   }
 
@@ -97,6 +105,16 @@ add_xgboost_params = function(param_set, task_type) {
                       CondEqual$new("dart"))
   }
 
+  # dependencies for dart, gbtree booster
+  dart_gbtree_params = c("xgboost.colsample_bylevel", "xgboost.colsample_bytree",
+                         "xgboost.max_depth", "xgboost.min_child_weight",
+                         "xgboost.subsample")
+  for (param in dart_gbtree_params) {
+    param_set$add_dep(paste(task_type, param, sep = "."),
+                      paste(task_type, "xgboost.booster", sep = "."),
+                      CondAnyOf$new(c("dart", "gbtree")))
+  }
+
   return(param_set)
 }
 
@@ -137,6 +155,48 @@ add_glmnet_params = function(param_set, task_type) {
     param_set$add_dep(param, "branch.selection",
                       CondEqual$new(paste(task_type, "cv_glmnet", sep = ".")))
   }
+
+svm_trafo = function(x, param_set, task_type) {
+  transformed_params = c("svm.cost", "svm.gamma")
+  transformed_params = paste(task_type, transformed_params, sep = ".")
+
+  for (param in names(x)) {
+    if (param %in% transformed_params) {
+      x[[param]] = 2^(x[[param]])
+    }
+  }
+  return(x)
+}
+
+add_svm_params = function(param_set, task_type) {
+  param_set$add(ParamSet$new(list(
+    # kernel is always set to radial
+    ParamFct$new(paste(task_type, "svm.kernel", sep = "."),
+                 c("radial"), default = "radial", tags = "svm"),
+    ParamDbl$new(paste(task_type, "svm.cost", sep = "."),
+                 lower = -12, upper = 12, default = 0, tags = "svm"),
+    ParamDbl$new(paste(task_type, "svm.gamma", sep = "."),
+                 lower = -12, upper = 12, default = 0, tags = "svm")
+  )))
+
+  if (task_type == "classif") {
+    param_set$add(
+      ParamFct$new(paste(task_type, "svm.type", sep = "."),
+                   c("C-classification"), default = "C-classification",
+                   tags = "svm"))
+  } else {
+    param_set$add(
+      ParamFct$new(paste(task_type, "svm.type", sep = "."),
+                   c("eps-regression"), default = "eps-regression",
+                   tags = "svm"))
+  }
+
+  # only tune over these hyperparameters if SVM branch is chosen
+  for (param in param_set$ids(tags = "svm")) {
+    param_set$add_dep(param, "branch.selection",
+                      CondEqual$new(paste(task_type, "svm", sep = ".")))
+  }
+  
   return(param_set)
 }
 
@@ -151,7 +211,7 @@ liblinear_trafo = function(x, param_set, task_type) {
 
 add_liblinear_params = function(param_set, task_type, learner) {
   param_set$add(ParamDbl$new(paste(learner, "cost", sep = "."),
-                             lower = -10, upper = 3, default = 0, tags = "liblinear"))
+                lower = -10, upper = 3, default = 0, tags = "liblinear"))
   param_set$add_dep(paste(learner, "cost", sep = "."),
                     "branch.selection",
                     CondEqual$new(paste(learner, sep = ".")))

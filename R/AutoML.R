@@ -54,6 +54,7 @@
 #' @import mlr3tuning
 #' @import paradox
 #' @import testthat
+#' @import xgboost
 #' @importFrom R6 R6Class
 #' @export
 #' @name AutoMLBase
@@ -155,7 +156,9 @@ AutoMLBase = R6Class("AutoMLBase",
       # avoid name conflicts in pipeline
       pipeline$set_names(pipeline$ids(),
                          paste(learner_name, pipeline$ids(), sep = "."))
-      # mtry is set at runtime depending on the number of features
+
+      # for Random Forest mtry is set at runtime, because the number of features
+      # after preprocessing is not known beforehand
       if (grepl('ranger', learner_name)) {
         private$.set_mtry_for_random_forest(pipeline)
       }
