@@ -44,8 +44,11 @@
 #'   `double(1) -> ResampleResult`
 #'   Performs nested resampling with a train/test split as the outer resampling
 #' @import checkmate
+#' @import glmnet
 #' @import mlr3
 #' @import mlr3learners
+#' @import xgboost
+#' @import mlr3learners.liblinear
 #' @import mlr3oml
 #' @import mlr3pipelines
 #' @import mlr3tuning
