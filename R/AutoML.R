@@ -148,6 +148,10 @@ AutoMLBase = R6Class("AutoMLBase",
                                       impute_missings = TRUE,
                                       factors_to_numeric = TRUE)
       }
+
+      # temporary workaround, see https://github.com/mlr-org/mlr3pipelines/issues/519
+      pipeline = po("nop") %>>% pipeline
+
       # avoid name conflicts in pipeline
       pipeline$set_names(pipeline$ids(),
                          paste(learner_name, pipeline$ids(), sep = "."))
