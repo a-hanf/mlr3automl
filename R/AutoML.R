@@ -46,11 +46,13 @@
 #' @import checkmate
 #' @import mlr3
 #' @import mlr3learners
+#' @import mlr3learners.liblinear
 #' @import mlr3oml
 #' @import mlr3pipelines
 #' @import mlr3tuning
 #' @import paradox
 #' @import testthat
+#' @import xgboost
 #' @importFrom R6 R6Class
 #' @export
 #' @name AutoMLBase
@@ -119,7 +121,9 @@ AutoMLBase = R6Class("AutoMLBase",
       }
       names(learners) = self$learner_list
       pipeline = ppl("branch", graphs = learners)
-      if (self$task$task_type == "classif") {
+      if (self$task$task_type == "classif"  && any(grepl("liblinear", self$learner_list))) {
+        graph_learner = GraphLearner$new(pipeline, task_type = "classif")
+      } else if (self$task$task_type == "classif") {
         graph_learner = GraphLearner$new(pipeline, task_type = "classif", predict_type = "prob")
       } else {
         graph_learner = GraphLearner$new(pipeline, task_type = "regr")
@@ -135,21 +139,41 @@ AutoMLBase = R6Class("AutoMLBase",
                            self$param_set, self$tuning_terminator, self$tuner))
     },
     .create_robust_learner = function(learner_name) {
-      pipeline = pipeline_robustify(
-        task = self$task,
-        learner = lrn(learner_name)
-      )
+      # SVMs from e1071 and liblinear can not handle missing data or factors
+      if (grepl("svm", learner_name) || grepl("liblinear", learner_name)) {
+        pipeline = pipeline_robustify(task = self$task,
+                                      learner = lrn(learner_name),
+                                      impute_missings = TRUE,
+                                      factors_to_numeric = TRUE)
+      # for tree-based methods it is no problem
+      } else {
+        pipeline = pipeline_robustify(task = self$task,
+                                      learner = lrn(learner_name))
+      }
+
       # avoid name conflicts in pipeline
       pipeline$set_names(pipeline$ids(),
                          paste(learner_name, pipeline$ids(), sep = "."))
-      # mtry is set at runtime depending on the number of features
+
+      # for Random Forest mtry is set at runtime, because the number of features
+      # after preprocessing is not known beforehand
       if (grepl('ranger', learner_name)) {
         private$.set_mtry_for_random_forest(pipeline)
       }
 
-      if (self$task$task_type == "classif") {
+      # liblinear only works with columns of type double. Convert ints / bools -> dbl
+      if (grepl('liblinear', learner_name)) {
+        pipeline = pipeline %>>%
+                   po("colapply", applicator = as.numeric,
+                   param_vals = list(affect_columns = selector_type(c("logical", "integer"))))
+      }
+
+      # liblinear does not provide probability predictions, all other classification
+      # learners do
+      if (self$task$task_type == "classif" && !grepl("liblinear", learner_name)) {
         return(pipeline %>>% po("learner", lrn(learner_name, predict_type = "prob")))
       }
+      # for regression learners or liblinear
       return(pipeline %>>% po("learner", lrn(learner_name)))
     },
     .set_mtry_for_random_forest = function(pipeline) {
