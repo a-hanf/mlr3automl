@@ -27,6 +27,10 @@ AutoTuner for Hyperparameter Optimization and during training or resampling.
 
 * `task` :: `Task` object from `mlr3` \cr
   Contains the data and some meta-features (like the target variable)
+* `learner_list` :: `List` of names for `mlr3 Learners` \cr
+  Can be used to customize the learners to be tuned over. If no parameter space
+  is defined for the selected learner, it will be run with default parameters.
+  Might break mlr3automl if the learner is incompatible with the provided task
 * `learner` :: `GraphLearner` object from `mlr3pipelines` \cr
   Contains the machine learning pipeline with preprocessing and multiple learners
 * `resampling` :: `Resampling` object from `mlr3tuning` \cr

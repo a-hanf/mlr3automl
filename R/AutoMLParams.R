@@ -11,12 +11,16 @@ default_params = function(learner_list, task_type) {
     ps = add_xgboost_params(ps, task_type)
   }
 
+  if (any(grepl("cv_glmnet", learner_list))) {
+    ps = add_glmnet_params(ps, task_type)
+  }
+  
   if (any(grepl("svm", learner_list))) {
     ps = add_svm_params(ps, task_type)
   }
-
+  
   for (learner in learner_list) {
-    if (grepl("svc", learner_list) || grepl("svr", learner_list)) {
+    if (grepl("liblinear", learner)) {
       ps = add_liblinear_params(ps, task_type, learner)
     }
   }
@@ -141,6 +145,16 @@ add_mtry_to_ranger_params = function(param_set, num_effective_vars, task_type) {
   return(param_set)
 }
 
+add_glmnet_params = function(param_set, task_type) {
+  param_set$add(
+    ParamDbl$new(paste(task_type, "cv_glmnet.alpha", sep = "."),
+                 lower = 0, upper = 1, default = 0, tags = "cv_glmnet"))
+
+  # only tune over these hyperparameters if glmnet branch is chosen
+  for (param in param_set$ids(tags = "cv_glmnet")) {
+    param_set$add_dep(param, "branch.selection",
+                      CondEqual$new(paste(task_type, "cv_glmnet", sep = ".")))
+  }
 
 svm_trafo = function(x, param_set, task_type) {
   transformed_params = c("svm.cost", "svm.gamma")
@@ -182,13 +196,13 @@ add_svm_params = function(param_set, task_type) {
     param_set$add_dep(param, "branch.selection",
                       CondEqual$new(paste(task_type, "svm", sep = ".")))
   }
-
+  
   return(param_set)
 }
 
 liblinear_trafo = function(x, param_set, task_type) {
   for (param in names(x)) {
-    if (grepl("svc.cost", param) || grepl("svr.cost", param)) {
+    if (grepl("liblinear.*cost", param)) {
       x[[param]] = 2^(x[[param]])
     }
   }

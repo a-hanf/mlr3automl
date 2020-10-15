@@ -44,8 +44,10 @@
 #'   `double(1) -> ResampleResult`
 #'   Performs nested resampling with a train/test split as the outer resampling
 #' @import checkmate
+#' @import glmnet
 #' @import mlr3
 #' @import mlr3learners
+#' @import xgboost
 #' @import mlr3learners.liblinear
 #' @import mlr3oml
 #' @import mlr3pipelines
@@ -75,7 +77,7 @@ AutoMLBase = R6Class("AutoMLBase",
         testthat::expect_true(learner %in% mlr_learners$keys())
       }
       if (!is.null(resampling)) assert_resampling(resampling)
-      if (!is.null(measures)) assert_measures(measures)
+      if (!is.null(measures)) assert_measure(measures)
       # FIXME: find / write assertion for terminator class
       # if (!is.null(terminator)) assert_terminator(terminator)
       self$task = task
@@ -90,6 +92,7 @@ AutoMLBase = R6Class("AutoMLBase",
       self$learner$train(self$task, row_ids)
       if (length(self$learner$learner$errors) > 0) {
         warning("An error occured during training. Fallback learner was used!")
+        print(self$learner$learner$errors)
       }
     },
     predict = function(data = NULL, row_ids = NULL) {
@@ -121,35 +124,34 @@ AutoMLBase = R6Class("AutoMLBase",
       }
       names(learners) = self$learner_list
       pipeline = ppl("branch", graphs = learners)
-      if (self$task$task_type == "classif"  && any(grepl("liblinear", self$learner_list))) {
-        graph_learner = GraphLearner$new(pipeline, task_type = "classif")
-      } else if (self$task$task_type == "classif") {
-        graph_learner = GraphLearner$new(pipeline, task_type = "classif", predict_type = "prob")
-      } else {
-        graph_learner = GraphLearner$new(pipeline, task_type = "regr")
-      }
-      # fallback learner is featureless learner for classification / regression
-      graph_learner$fallback = lrn(paste(self$task$task_type, '.featureless',
-                                         sep = ""))
-      # use callr encapsulation so we are able to kill model training, if it
-      # takes too long
-      graph_learner$encapsulate = c(train = "callr", predict = "callr")
+      graph_learner = GraphLearner$new(pipeline)
+
+      # # fallback learner is featureless learner for classification / regression
+      # graph_learner$fallback = lrn(paste(self$task$task_type, '.featureless',
+      #                                    sep = ""))
+      # # use callr encapsulation so we are able to kill model training, if it
+      # # takes too long
+      # graph_learner$encapsulate = c(train = "callr", predict = "callr")
 
       return(AutoTuner$new(graph_learner, self$resampling, self$measures,
                            self$param_set, self$tuning_terminator, self$tuner))
     },
     .create_robust_learner = function(learner_name) {
-      # SVMs from e1071 and liblinear can not handle missing data or factors
-      if (grepl("svm", learner_name) || grepl("liblinear", learner_name)) {
+      # Tree-based methods can handle factors and missing values natively
+      if (grepl("ranger", learner_name) || grepl("xgboost", learner_name)) {
+        pipeline = pipeline_robustify(task = self$task,
+                                      learner = lrn(learner_name))
+        # SVMs from e1071 and liblinear need imputation / encoding
+        # also good default setting for learners with unconfigured param spaces
+      } else {
         pipeline = pipeline_robustify(task = self$task,
                                       learner = lrn(learner_name),
                                       impute_missings = TRUE,
                                       factors_to_numeric = TRUE)
-      # for tree-based methods it is no problem
-      } else {
-        pipeline = pipeline_robustify(task = self$task,
-                                      learner = lrn(learner_name))
       }
+
+      # temporary workaround, see https://github.com/mlr-org/mlr3pipelines/issues/519
+      pipeline = po("nop") %>>% pipeline
 
       # avoid name conflicts in pipeline
       pipeline$set_names(pipeline$ids(),
@@ -164,16 +166,15 @@ AutoMLBase = R6Class("AutoMLBase",
       # liblinear only works with columns of type double. Convert ints / bools -> dbl
       if (grepl('liblinear', learner_name)) {
         pipeline = pipeline %>>%
-                   po("colapply", applicator = as.numeric,
-                   param_vals = list(affect_columns = selector_type(c("logical", "integer"))))
+          po("colapply", applicator = as.numeric,
+             param_vals = list(affect_columns = selector_type(c("logical", "integer"))))
       }
 
-      # liblinear does not provide probability predictions, all other classification
-      # learners do
-      if (self$task$task_type == "classif" && !grepl("liblinear", learner_name)) {
+      # predict probabilities for classification if possible
+      if (self$task$task_type == "classif" && ("prob" %in% lrn(learner_name)$predict_types)) {
         return(pipeline %>>% po("learner", lrn(learner_name, predict_type = "prob")))
       }
-      # for regression learners or liblinear
+      # default: predict with type response
       return(pipeline %>>% po("learner", lrn(learner_name)))
     },
     .set_mtry_for_random_forest = function(pipeline) {
