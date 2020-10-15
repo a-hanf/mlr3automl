@@ -76,7 +76,7 @@ AutoMLBase = R6Class("AutoMLBase",
         testthat::expect_true(learner %in% mlr_learners$keys())
       }
       if (!is.null(resampling)) assert_resampling(resampling)
-      if (!is.null(measures)) assert_measures(measures)
+      if (!is.null(measures)) assert_measure(measures)
       # FIXME: find / write assertion for terminator class
       # if (!is.null(terminator)) assert_terminator(terminator)
       self$task = task
