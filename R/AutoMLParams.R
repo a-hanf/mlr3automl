@@ -14,11 +14,11 @@ default_params = function(learner_list, task_type) {
   if (any(grepl("cv_glmnet", learner_list))) {
     ps = add_glmnet_params(ps, task_type)
   }
-  
+
   if (any(grepl("svm", learner_list))) {
     ps = add_svm_params(ps, task_type)
   }
-  
+
   for (learner in learner_list) {
     if (grepl("liblinear", learner)) {
       ps = add_liblinear_params(ps, task_type, learner)
@@ -155,6 +155,8 @@ add_glmnet_params = function(param_set, task_type) {
     param_set$add_dep(param, "branch.selection",
                       CondEqual$new(paste(task_type, "cv_glmnet", sep = ".")))
   }
+  return(param_set)
+}
 
 svm_trafo = function(x, param_set, task_type) {
   transformed_params = c("svm.cost", "svm.gamma")
@@ -196,7 +198,7 @@ add_svm_params = function(param_set, task_type) {
     param_set$add_dep(param, "branch.selection",
                       CondEqual$new(paste(task_type, "svm", sep = ".")))
   }
-  
+
   return(param_set)
 }
 

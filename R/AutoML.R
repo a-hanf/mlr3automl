@@ -153,10 +153,6 @@ AutoMLBase = R6Class("AutoMLBase",
       # temporary workaround, see https://github.com/mlr-org/mlr3pipelines/issues/519
       pipeline = po("nop") %>>% pipeline
 
-      # avoid name conflicts in pipeline
-      pipeline$set_names(pipeline$ids(),
-                         paste(learner_name, pipeline$ids(), sep = "."))
-
       # for Random Forest mtry is set at runtime, because the number of features
       # after preprocessing is not known beforehand
       if (grepl('ranger', learner_name)) {
@@ -169,6 +165,9 @@ AutoMLBase = R6Class("AutoMLBase",
           po("colapply", applicator = as.numeric,
              param_vals = list(affect_columns = selector_type(c("logical", "integer"))))
       }
+
+      # avoid name conflicts in pipeline
+      pipeline$update_ids(prefix = paste0(learner_name, "."))
 
       # predict probabilities for classification if possible
       if (self$task$task_type == "classif" && ("prob" %in% lrn(learner_name)$predict_types)) {
