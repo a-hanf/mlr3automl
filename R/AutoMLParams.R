@@ -86,6 +86,16 @@ add_xgboost_params = function(param_set, task_type) {
                       CondEqual$new("dart"))
   }
 
+  # dependencies for dart, gbtree booster
+  dart_gbtree_params = c("xgboost.colsample_bylevel", "xgboost.colsample_bytree",
+                         "xgboost.max_depth", "xgboost.min_child_weight",
+                         "xgboost.subsample")
+  for (param in dart_gbtree_params) {
+    param_set$add_dep(paste(task_type, param, sep = "."),
+                      paste(task_type, "xgboost.booster", sep = "."),
+                      CondAnyOf$new(c("dart", "gbtree")))
+  }
+
   return(param_set)
 }
 
