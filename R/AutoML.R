@@ -143,18 +143,7 @@ AutoMLBase = R6Class("AutoMLBase",
                            self$param_set, self$tuning_terminator, self$tuner))
     },
     .create_robust_learner = function(learner_name) {
-      # Tree-based methods can handle factors and missing values natively
-      if (grepl("ranger", learner_name) || grepl("xgboost", learner_name)) {
-        pipeline = pipeline_robustify(task = self$task,
-                                      learner = lrn(learner_name))
-        # SVMs from e1071 and liblinear need imputation / encoding
-        # also good default setting for learners with unconfigured param spaces
-      } else {
-        pipeline = pipeline_robustify(task = self$task,
-                                      learner = lrn(learner_name),
-                                      impute_missings = TRUE,
-                                      factors_to_numeric = TRUE)
-      }
+      pipeline = pipeline_robustify(task = self$task, learner = lrn(learner_name))
 
       # temporary workaround, see https://github.com/mlr-org/mlr3pipelines/issues/519
       pipeline = po("nop") %>>% pipeline
