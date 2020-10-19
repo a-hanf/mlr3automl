@@ -20,19 +20,14 @@
 #'   Can be used to customize the learners to be tuned over. If no parameter space
 #'   is defined for the selected learner, it will be run with default parameters.
 #'   Might break mlr3automl if the learner is incompatible with the provided task
-#' * `learner` :: `GraphLearner` object from `mlr3pipelines` \cr
-#'   Contains the machine learning pipeline with preprocessing and multiple learners
+#' * `learner_timeout` :: `Integer` \cr
+#'   Budget (in seconds) for a single learner during training of the pipeline
 #' * `resampling` :: `Resampling` object from `mlr3tuning` \cr
 #'   Contains the resampling method to be used for hyper-parameter optimization
 #' * `measures` :: `Measure` object from `mlr_measures` \cr
 #'   Contains the performance measure, for which we optimize during training
-#' * `param_set` :: `ParamSet` object from `paradox` \cr
-#'   Contains the parameter space over which we optimize
 #' * `tuning_terminator` :: `Terminator` object from `mlr3tuning` \cr
 #'   Contains the termination criterion for model tuning
-#' * `tuner` :: `Tuner` object from `mlr3tuning` \cr
-#'   Contains the tuning strategy used for hyper-parameter optimization (default: Random Search)
-#'   Note: We will be switching to Hyperband for the tuning as soon as it works.
 #' @section Methods
 #' * `train()` \cr
 #'   Runs the AutoML system. The trained model is saved in the $learner slot.
@@ -63,26 +58,38 @@ AutoMLBase = R6Class("AutoMLBase",
   public = list(
     task = NULL,
     learner_list = NULL,
+    learner_timeout = NULL,
     learner = NULL,
     resampling = NULL,
     measures = NULL,
     param_set = NULL,
     tuning_terminator = NULL,
     tuner = NULL,
-    initialize = function(task, learner_list = NULL, resampling = NULL,
-                          measures = NULL, terminator = NULL) {
+    initialize = function(task, learner_list = NULL, learner_timeout = NULL,
+                          resampling = NULL, measures = NULL, terminator = NULL) {
+
       assert_task(task)
       for (learner in learner_list) {
         testthat::expect_true(learner %in% mlr_learners$keys())
       }
       if (!is.null(resampling)) assert_resampling(resampling)
       if (!is.null(measures)) assert_measure(measures)
-      # FIXME: find / write assertion for terminator class
-      # if (!is.null(terminator)) assert_terminator(terminator)
+
       self$task = task
-      self$resampling = resampling %??% rsmp("cv", folds = 3)
+      self$resampling = resampling %??% rsmp("holdout")
+
+      default_runtime = 120
+      if (is.null(learner_timeout)) {
+        if (!is.null(terminator$param_set$values$secs)) {
+          learner_timeout = as.integer(terminator$param_set$values$secs / 5)
+        } else {
+          learner_timeout = default_runtime / 5
+        }
+      }
+      self$learner_timeout = learner_timeout
       self$tuning_terminator = terminator %??%
-        trm('combo', list(trm('run_time', secs = 60), trm('stagnation')))
+        trm('combo', list(trm('run_time', secs = default_runtime), trm('stagnation')))
+
       self$tuner = tnr("random_search")
       self$param_set = private$.get_default_param_set()
       self$learner = private$.get_default_learner()
@@ -103,8 +110,7 @@ AutoMLBase = R6Class("AutoMLBase",
     },
     resample = function() {
       outer_resampling = rsmp("holdout")
-      resample_result = mlr3::resample(self$task, self$learner,
-                                       outer_resampling, store_models = TRUE)
+      resample_result = mlr3::resample(self$task, self$learner, outer_resampling)
       self$learner = resample_result$learners[[1]]
       if (length(self$learner$learner$errors) > 0) {
         warning("An error occured during training. Fallback learner was used!")
@@ -125,12 +131,13 @@ AutoMLBase = R6Class("AutoMLBase",
       pipeline = ppl("branch", graphs = learners)
       graph_learner = GraphLearner$new(pipeline)
 
-      # # fallback learner is featureless learner for classification / regression
-      # graph_learner$fallback = lrn(paste(self$task$task_type, '.featureless',
-      #                                    sep = ""))
-      # # use callr encapsulation so we are able to kill model training, if it
-      # # takes too long
-      # graph_learner$encapsulate = c(train = "callr", predict = "callr")
+      # fallback learner is featureless learner for classification / regression
+      graph_learner$fallback = lrn(paste(self$task$task_type, '.featureless',
+                                         sep = ""))
+      # use callr encapsulation so we are able to kill model training, if it
+      # takes too long
+      graph_learner$encapsulate = c(train = "callr", predict = "callr")
+      graph_learner$timeout = c(train = self$learner_timeout, predict = self$learner_timeout)
 
       return(AutoTuner$new(graph_learner, self$resampling, self$measures,
                            self$param_set, self$tuning_terminator, self$tuner))
@@ -206,8 +213,8 @@ AutoMLBase = R6Class("AutoMLBase",
 #' \dontrun{
 #' automl_object = AutoML(tsk("iris"))
 #' }
-AutoML = function(task, learner_list = NULL, resampling = NULL, measures = NULL,
-                  terminator = NULL) {
+AutoML = function(task, learner_list = NULL, learner_timeout = NULL,
+                  resampling = NULL, measures = NULL, terminator = NULL) {
   if (task$task_type == "classif") {
     # stratify target variable so that every target label appears
     # in all folds while resampling
@@ -215,10 +222,11 @@ AutoML = function(task, learner_list = NULL, resampling = NULL, measures = NULL,
     if (length(target_is_factor) == 1 && target_is_factor) {
       task$col_roles$stratum = task$target_names
     }
-    return(AutoMLClassif$new(task, learner_list, resampling, measures,
-                             terminator))
+    return(AutoMLClassif$new(task, learner_list, learner_timeout,
+                             resampling, measures, terminator))
   } else if (task$task_type == "regr") {
-    return(AutoMLRegr$new(task, learner_list, resampling, measures, terminator))
+    return(AutoMLRegr$new(task, learner_list, learner_timeout,
+                          resampling, measures, terminator))
   } else {
     stop("mlr3automl only supports classification and regression tasks for now")
   }
