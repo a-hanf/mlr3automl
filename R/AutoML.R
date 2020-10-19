@@ -43,17 +43,16 @@
 #'   `resample(outer_resampling_holdout_ratio = 0.8)`
 #'   `double(1) -> ResampleResult`
 #'   Performs nested resampling with a train/test split as the outer resampling
-#' @import checkmate
-#' @import glmnet
 #' @import mlr3
 #' @import mlr3learners
-#' @import xgboost
-#' @import mlr3learners.liblinear
+#' @import mlr3extralearners
 #' @import mlr3oml
 #' @import mlr3pipelines
 #' @import mlr3tuning
 #' @import paradox
+#' @import checkmate
 #' @import testthat
+#' @import glmnet
 #' @import xgboost
 #' @importFrom R6 R6Class
 #' @export

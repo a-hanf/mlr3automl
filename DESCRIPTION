@@ -18,9 +18,12 @@ Imports:
     mlr3pipelines,
     mlr3tuning,
     mlr3learners,
+	mlr3extralearners,
     mlr3oml,
     paradox,
-    R6
+    R6,
+	xgboost,
+	glmnet
 Suggests: 
     testthat
 RoxygenNote: 6.1.1
