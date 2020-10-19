@@ -4,8 +4,8 @@
 \alias{AutoML}
 \title{Interface function for mlr3automl}
 \usage{
-AutoML(task, learner_list = NULL, resampling = NULL, measures = NULL,
-  terminator = NULL)
+AutoML(task, learner_list = NULL, learner_timeout = NULL,
+  resampling = NULL, measures = NULL, terminator = NULL)
 }
 \value{
 ['AutoMLClassif' | 'AutoMLRegr']

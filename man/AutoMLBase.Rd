@@ -31,19 +31,14 @@ AutoTuner for Hyperparameter Optimization and during training or resampling.
   Can be used to customize the learners to be tuned over. If no parameter space
   is defined for the selected learner, it will be run with default parameters.
   Might break mlr3automl if the learner is incompatible with the provided task
-* `learner` :: `GraphLearner` object from `mlr3pipelines` \cr
-  Contains the machine learning pipeline with preprocessing and multiple learners
+* `learner_timeout` :: `Integer` \cr
+  Budget (in seconds) for a single learner during training of the pipeline
 * `resampling` :: `Resampling` object from `mlr3tuning` \cr
   Contains the resampling method to be used for hyper-parameter optimization
 * `measures` :: `Measure` object from `mlr_measures` \cr
   Contains the performance measure, for which we optimize during training
-* `param_set` :: `ParamSet` object from `paradox` \cr
-  Contains the parameter space over which we optimize
 * `tuning_terminator` :: `Terminator` object from `mlr3tuning` \cr
   Contains the termination criterion for model tuning
-* `tuner` :: `Tuner` object from `mlr3tuning` \cr
-  Contains the tuning strategy used for hyper-parameter optimization (default: Random Search)
-  Note: We will be switching to Hyperband for the tuning as soon as it works.
 }
 
 \examples{
