@@ -204,7 +204,7 @@ add_liblinear_params = function(param_set, task_type) {
   # https://www.rdocumentation.org/packages/LiblineaR/versions/2.10-8/topics/LiblineaR
   if (task_type == "classif") {
     param_set$add(ParamInt$new(paste(task_type, "liblinear.type", sep = "."),
-                               lower = 0, upper = 7, default = 0, tags = "liblinear"))
+                               lower = 6, upper = 7, default = 6, tags = "liblinear"))
   } else {
     param_set$add(ParamInt$new(paste(task_type, "liblinear.type", sep = "."),
                                lower = 11, upper = 13, default = 11, tags = "liblinear"))

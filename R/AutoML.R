@@ -147,7 +147,7 @@ AutoMLBase = R6Class("AutoMLBase",
 
       # add subsampling for huge datasets
       if (self$task$nrow > 100000) {
-        subsampling_rate = 1000 / self$task$nrow
+        subsampling_rate = 100000 / self$task$nrow
         pipeline = pipeline %>>% po("subsample", frac = subsampling_rate, stratify = TRUE)
       }
 
