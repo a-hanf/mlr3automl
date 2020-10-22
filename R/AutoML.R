@@ -142,10 +142,16 @@ AutoMLBase = R6Class("AutoMLBase",
                            self$param_set, self$tuning_terminator, self$tuner))
     },
     .create_robust_learner = function(learner_name) {
-      pipeline = pipeline_robustify(task = self$task, learner = lrn(learner_name))
-
       # temporary workaround, see https://github.com/mlr-org/mlr3pipelines/issues/519
-      pipeline = po("nop") %>>% pipeline
+      pipeline = po("nop")
+
+      # add subsampling for huge datasets
+      if (self$task$nrow > 100000) {
+        subsampling_rate = 1000 / self$task$nrow
+        pipeline = pipeline %>>% po("subsample", frac = subsampling_rate, stratify = TRUE)
+      }
+
+      pipeline = pipeline %>>% pipeline_robustify(task = self$task, learner = lrn(learner_name))
 
       # for Random Forest mtry is set at runtime, because the number of features
       # after preprocessing is not known beforehand
