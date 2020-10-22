@@ -38,7 +38,7 @@
 #'   `resample(outer_resampling_holdout_ratio = 0.8)`
 #'   `double(1) -> ResampleResult`
 #'   Performs nested resampling with a train/test split as the outer resampling
-#' @import mlr3
+#' @rawNamespace import(mlr3, except = c(lrn, lrns))
 #' @import mlr3learners
 #' @import mlr3extralearners
 #' @import mlr3oml
@@ -98,7 +98,6 @@ AutoMLBase = R6Class("AutoMLBase",
       self$learner$train(self$task, row_ids)
       if (length(self$learner$learner$errors) > 0) {
         warning("An error occured during training. Fallback learner was used!")
-        print(self$learner$learner$errors)
       }
     },
     predict = function(data = NULL, row_ids = NULL) {
