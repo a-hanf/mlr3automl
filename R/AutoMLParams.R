@@ -2,7 +2,6 @@
 # https://docs.google.com/spreadsheets/d/1A8r5RgMxtRrL3nHVtFhO94DMTJ6qwkoOiakm7qj1e4g
 
 default_params = function(learner_list, task_type) {
-
   # model is selected during tuning as a branch of the GraphLearner
   ps = ParamSet$new(list(ParamFct$new("branch.selection", learner_list)))
 
@@ -19,9 +18,15 @@ default_params = function(learner_list, task_type) {
     ps = add_svm_params(ps, task_type)
   }
 
-  for (learner in learner_list) {
-    if (grepl("liblinear", learner)) {
-      ps = add_liblinear_params(ps, task_type, learner)
+  if (any(grepl("liblinear", learner_list))) {
+    ps = add_liblinear_params(ps, task_type)
+  }
+
+  # add dependencies for branch selection
+  for (learner in sub(paste0(task_type, "."), "", learner_list)) {
+    for (param in ps$ids(tags = learner)) {
+      ps$add_dep(param, "branch.selection",
+                 CondEqual$new(paste(task_type, learner, sep = ".")))
     }
   }
 
@@ -90,12 +95,6 @@ add_xgboost_params = function(param_set, task_type) {
                  lower = 1, upper = 20, default = 1, tags = "xgboost")
   )))
 
-  # only tune over these hyperparameters if XGBoost branch is chosen
-  for (param in param_set$ids(tags = "xgboost")) {
-    param_set$add_dep(param, "branch.selection",
-                      CondEqual$new(paste(task_type, "xgboost", sep = ".")))
-  }
-
   # additional dependencies for parameters of dart booster
   dart_params = c("xgboost.sample_type", "xgboost.rate_drop",
                   "xgboost.normalize_type")
@@ -129,6 +128,8 @@ ranger_trafo = function(x, param_set, num_effective_vars, task_type) {
 add_mtry_to_ranger_params = function(param_set, num_effective_vars, task_type) {
   param_set$add(ParamDbl$new(paste(task_type, "ranger.mtry", sep = "."),
                              lower = 0.1, upper = 0.9, tags = "ranger"))
+  param_set$add_dep(paste(task_type, "ranger.mtry", sep = "."), "branch.selection",
+                    CondEqual$new(paste(task_type, "ranger", sep = ".")))
 
   old_trafo_function = param_set$trafo
 
@@ -138,10 +139,6 @@ add_mtry_to_ranger_params = function(param_set, num_effective_vars, task_type) {
     return(x)
   }
 
-  param_set$add_dep(paste(task_type, "ranger.mtry", sep = "."),
-                    "branch.selection",
-                    CondEqual$new(paste(task_type, "ranger", sep = ".")))
-
   return(param_set)
 }
 
@@ -150,11 +147,6 @@ add_glmnet_params = function(param_set, task_type) {
     ParamDbl$new(paste(task_type, "cv_glmnet.alpha", sep = "."),
                  lower = 0, upper = 1, default = 0, tags = "cv_glmnet"))
 
-  # only tune over these hyperparameters if glmnet branch is chosen
-  for (param in param_set$ids(tags = "cv_glmnet")) {
-    param_set$add_dep(param, "branch.selection",
-                      CondEqual$new(paste(task_type, "cv_glmnet", sep = ".")))
-  }
   return(param_set)
 }
 
@@ -172,7 +164,7 @@ svm_trafo = function(x, param_set, task_type) {
 
 add_svm_params = function(param_set, task_type) {
   param_set$add(ParamSet$new(list(
-    # kernel is always set to radial
+    # kernel is always radial, other kernels are rarely better in our experience
     ParamFct$new(paste(task_type, "svm.kernel", sep = "."),
                  c("radial"), default = "radial", tags = "svm"),
     ParamDbl$new(paste(task_type, "svm.cost", sep = "."),
@@ -193,12 +185,6 @@ add_svm_params = function(param_set, task_type) {
                    tags = "svm"))
   }
 
-  # only tune over these hyperparameters if SVM branch is chosen
-  for (param in param_set$ids(tags = "svm")) {
-    param_set$add_dep(param, "branch.selection",
-                      CondEqual$new(paste(task_type, "svm", sep = ".")))
-  }
-
   return(param_set)
 }
 
@@ -211,11 +197,18 @@ liblinear_trafo = function(x, param_set, task_type) {
   return(x)
 }
 
-add_liblinear_params = function(param_set, task_type, learner) {
-  param_set$add(ParamDbl$new(paste(learner, "cost", sep = "."),
-                lower = -10, upper = 3, default = 0, tags = "liblinear"))
-  param_set$add_dep(paste(learner, "cost", sep = "."),
-                    "branch.selection",
-                    CondEqual$new(paste(learner, sep = ".")))
+add_liblinear_params = function(param_set, task_type) {
+  param_set$add(ParamDbl$new(paste(task_type, "liblinear.cost", sep = "."),
+                             lower = -10, upper = 3, default = 0, tags = "liblinear"))
+  # for documentation on the types, see
+  # https://www.rdocumentation.org/packages/LiblineaR/versions/2.10-8/topics/LiblineaR
+  if (task_type == "classif") {
+    param_set$add(ParamInt$new(paste(task_type, "liblinear.type", sep = "."),
+                               lower = 0, upper = 7, default = 0, tags = "liblinear"))
+  } else {
+    param_set$add(ParamInt$new(paste(task_type, "liblinear.type", sep = "."),
+                               lower = 11, upper = 13, default = 11, tags = "liblinear"))
+  }
+
   return(param_set)
 }
