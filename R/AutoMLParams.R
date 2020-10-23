@@ -1,7 +1,7 @@
 # the parameter ranges are based on
 # https://docs.google.com/spreadsheets/d/1A8r5RgMxtRrL3nHVtFhO94DMTJ6qwkoOiakm7qj1e4g
 
-default_params = function(learner_list, task_type) {
+default_params = function(learner_list, task_type, num_effective_vars = NULL) {
   # model is selected during tuning as a branch of the GraphLearner
   ps = ParamSet$new(list(ParamFct$new("branch.selection", learner_list)))
 
@@ -22,6 +22,10 @@ default_params = function(learner_list, task_type) {
     ps = add_liblinear_params(ps, task_type)
   }
 
+  if (any(grepl("ranger", learner_list))) {
+    ps = add_ranger_params(ps, task_type, num_effective_vars)
+  }
+
   # add dependencies for branch selection
   for (learner in sub(paste0(task_type, "."), "", learner_list)) {
     for (param in ps$ids(tags = learner)) {
@@ -33,6 +37,7 @@ default_params = function(learner_list, task_type) {
   # trafo function can be safely set, if parameters are not used nothing happens
   ps$trafo = function(x, param_set) {
     x = xgboost_trafo(x, param_set, task_type)
+    x = ranger_trafo(x, param_set, task_type, num_effective_vars)
     x = svm_trafo(x, param_set, task_type)
     x = liblinear_trafo(x, param_set, task_type)
   }
@@ -117,27 +122,16 @@ add_xgboost_params = function(param_set, task_type) {
   return(param_set)
 }
 
-ranger_trafo = function(x, param_set, num_effective_vars, task_type) {
-  proposed_mtry = as.integer(num_effective_vars^x$regr.ranger.mtry)
-  max_features = 200
-  x[[paste(task_type, "ranger.mtry", sep = ".")]] =
-    min(max(1, proposed_mtry), max_features)
+ranger_trafo = function(x, param_set, task_type, num_effective_vars) {
+  proposed_mtry = as.integer(num_effective_vars^x[[paste(task_type, "ranger.mtry", sep = ".")]])
+  x[[paste(task_type, "ranger.mtry", sep = ".")]] = max(1, proposed_mtry)
   return(x)
 }
 
-add_mtry_to_ranger_params = function(param_set, num_effective_vars, task_type) {
-  param_set$add(ParamDbl$new(paste(task_type, "ranger.mtry", sep = "."),
-                             lower = 0.1, upper = 0.9, tags = "ranger"))
-  param_set$add_dep(paste(task_type, "ranger.mtry", sep = "."), "branch.selection",
-                    CondEqual$new(paste(task_type, "ranger", sep = ".")))
-
-  old_trafo_function = param_set$trafo
-
-  param_set$trafo = function(x, param_set) {
-    x = old_trafo_function(x, param_set)
-    x = ranger_trafo(x, param_set, num_effective_vars, task_type)
-    return(x)
-  }
+add_ranger_params = function(param_set, task_type, num_effective_vars) {
+  param_set$add(
+    ParamDbl$new(paste(task_type, "ranger.mtry", sep = "."),
+                 lower = 0.1, upper = 0.9, tags = "ranger"))
 
   return(param_set)
 }

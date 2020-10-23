@@ -91,7 +91,12 @@ AutoMLBase = R6Class("AutoMLBase",
         trm('combo', list(trm('run_time', secs = default_runtime), trm('stagnation')))
 
       self$tuner = tnr("random_search")
-      self$param_set = private$.get_default_param_set()
+
+      if (any(grepl("ranger", self$learner_list))) {
+        num_effective_vars = private$.compute_num_effective_vars()
+      }
+
+      self$param_set = default_params(self$learner_list, self$task$task_type, num_effective_vars)
       self$learner = private$.get_default_learner()
     },
     train = function(row_ids = NULL) {
@@ -151,13 +156,9 @@ AutoMLBase = R6Class("AutoMLBase",
         pipeline = pipeline %>>% po("subsample", frac = subsampling_rate, stratify = TRUE)
       }
 
-      pipeline = pipeline %>>% pipeline_robustify(task = self$task, learner = lrn(learner_name))
-
-      # for Random Forest mtry is set at runtime, because the number of features
-      # after preprocessing is not known beforehand
-      if (grepl('ranger', learner_name)) {
-        private$.set_mtry_for_random_forest(pipeline)
-      }
+      # robustify_pipeline takes care of imputation, factor encoding etc.
+      # we always need imputation, because earlier preprocessing pipeops may introduce missing values
+      pipeline = pipeline %>>% pipeline_robustify(task = self$task, learner = lrn(learner_name), impute_missings = TRUE)
 
       # liblinear only works with columns of type double. Convert ints / bools -> dbl
       if (grepl('liblinear', learner_name)) {
@@ -176,22 +177,19 @@ AutoMLBase = R6Class("AutoMLBase",
       # default: predict with type response
       return(pipeline %>>% po("learner", lrn(learner_name)))
     },
-    .set_mtry_for_random_forest = function(pipeline) {
-      # deep copy so we don't mess up the original pipeline
-      pipe_copy = pipeline$clone(deep = TRUE) %>>%
+    .compute_num_effective_vars = function() {
+      rf_learner = lrn(paste(self$task$task_type, 'ranger', sep = "."))
+
+      pipeline =
+        po("nop") %>>%
+        pipeline_robustify(task = self$task, learner = rf_learner, impute_missings = TRUE) %>>%
         lrn(paste(self$task$task_type, '.featureless', sep = ""))
-      # train without an informative learner so we can see the output of the
-      # preprocessing pipeline
-      pipe_copy$train(self$task)
-      last_pipeop = pipe_copy$ids()[length(pipe_copy$ids())]
-      # get number of variables after encoding from input of final pipeop
-      num_effective_vars = length(get(last_pipeop, pipe_copy$state)$train_task$feature_names)
-      self$param_set = add_mtry_to_ranger_params(
-        self$param_set, num_effective_vars, self$task$task_type)
-    },
-    .get_default_param_set = function() {
-      ps = default_params(self$learner_list, self$task$task_type)
-      return(ps)
+      pipeline$train(self$task)
+
+      # get number of variables after preprocessing
+      last_pipeop = paste(self$task$task_type, '.featureless', sep = "")
+      num_effective_vars = get(last_pipeop, pipeline$state)$train_task$ncol - 1
+      return(num_effective_vars)
     }
   )
 )
