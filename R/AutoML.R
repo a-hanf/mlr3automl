@@ -78,17 +78,17 @@ AutoMLBase = R6Class("AutoMLBase",
       self$task = task
       self$resampling = resampling %??% rsmp("holdout")
 
-      default_runtime = 120
       if (is.null(learner_timeout)) {
         if (!is.null(terminator$param_set$values$secs)) {
           learner_timeout = as.integer(terminator$param_set$values$secs / 5)
         } else {
-          learner_timeout = default_runtime / 5
+          learner_timeout = Inf
         }
       }
+
       self$learner_timeout = learner_timeout
       self$tuning_terminator = terminator %??%
-        trm('combo', list(trm('run_time', secs = default_runtime), trm('stagnation')))
+        trm('combo', list(trm('run_time', secs = 120), trm('stagnation')))
 
       self$tuner = tnr("random_search")
 
@@ -135,13 +135,16 @@ AutoMLBase = R6Class("AutoMLBase",
       pipeline = ppl("branch", graphs = learners)
       graph_learner = GraphLearner$new(pipeline)
 
-      # fallback learner is featureless learner for classification / regression
-      graph_learner$fallback = lrn(paste(self$task$task_type, '.featureless',
-                                         sep = ""))
-      # use callr encapsulation so we are able to kill model training, if it
-      # takes too long
-      graph_learner$encapsulate = c(train = "callr", predict = "callr")
-      graph_learner$timeout = c(train = self$learner_timeout, predict = self$learner_timeout)
+      if (!is.null(self$learner_timeout) || !is.infinite(self$learner_timeout)) {
+        # fallback learner is featureless learner for classification / regression
+        graph_learner$fallback = lrn(paste(self$task$task_type, '.featureless',
+                                           sep = ""))
+        # use callr encapsulation so we are able to kill model training, if it
+        # takes too long
+        graph_learner$encapsulate = c(train = "callr", predict = "callr")
+        graph_learner$timeout = c(train = self$learner_timeout, predict = self$learner_timeout)
+      }
+
 
       return(AutoTuner$new(graph_learner, self$resampling, self$measures,
                            self$param_set, self$tuning_terminator, self$tuner))
