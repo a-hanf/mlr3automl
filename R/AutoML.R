@@ -153,12 +153,6 @@ AutoMLBase = R6Class("AutoMLBase",
       # temporary workaround, see https://github.com/mlr-org/mlr3pipelines/issues/519
       pipeline = po("nop")
 
-      # add subsampling for huge datasets
-      if (self$task$nrow > 100000) {
-        subsampling_rate = 100000 / self$task$nrow
-        pipeline = pipeline %>>% po("subsample", frac = subsampling_rate, stratify = TRUE)
-      }
-
       # robustify_pipeline takes care of imputation, factor encoding etc.
       # we always need imputation, because earlier preprocessing pipeops may introduce missing values
       pipeline = pipeline %>>% pipeline_robustify(task = self$task, learner = lrn(learner_name), impute_missings = TRUE)
