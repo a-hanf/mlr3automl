@@ -41,6 +41,7 @@
 #' @rawNamespace import(mlr3, except = c(lrn, lrns))
 #' @import mlr3learners
 #' @import mlr3extralearners
+#' @import mlr3hyperband
 #' @import mlr3oml
 #' @import mlr3pipelines
 #' @import mlr3tuning
@@ -62,7 +63,6 @@ AutoMLBase = R6Class("AutoMLBase",
     learner = NULL,
     resampling = NULL,
     measures = NULL,
-    param_set = NULL,
     tuning_terminator = NULL,
     tuner = NULL,
     initialize = function(task, learner_list = NULL, learner_timeout = NULL,
@@ -87,16 +87,9 @@ AutoMLBase = R6Class("AutoMLBase",
       }
 
       self$learner_timeout = learner_timeout
-      self$tuning_terminator = terminator %??%
-        trm('combo', list(trm('run_time', secs = 120), trm('stagnation')))
+      self$tuning_terminator = trm("run_time", secs = 60)
 
-      self$tuner = tnr("random_search")
-
-      if (any(grepl("ranger", self$learner_list))) {
-        num_effective_vars = private$.compute_num_effective_vars()
-      }
-
-      self$param_set = default_params(self$learner_list, self$task$task_type, num_effective_vars)
+      self$tuner = tnr("hyperband", eta = 5L)
       self$learner = private$.get_default_learner()
     },
     train = function(row_ids = NULL) {
@@ -132,7 +125,7 @@ AutoMLBase = R6Class("AutoMLBase",
         learners = append(learners, private$.create_robust_learner(learner))
       }
       names(learners) = self$learner_list
-      pipeline = ppl("branch", graphs = learners)
+      pipeline = po("subsample") %>>% ppl("branch", graphs = learners)
       graph_learner = GraphLearner$new(pipeline)
 
       if (!is.null(self$learner_timeout) || !is.infinite(self$learner_timeout)) {
@@ -145,9 +138,14 @@ AutoMLBase = R6Class("AutoMLBase",
         graph_learner$timeout = c(train = self$learner_timeout, predict = self$learner_timeout)
       }
 
+      if (any(grepl("ranger", self$learner_list))) {
+        num_effective_vars = private$.compute_num_effective_vars()
+      }
+
+      param_set = default_params(self$learner_list, self$task$task_type, num_effective_vars)
 
       return(AutoTuner$new(graph_learner, self$resampling, self$measures,
-                           self$param_set, self$tuning_terminator, self$tuner))
+                           param_set, self$tuning_terminator, self$tuner))
     },
     .create_robust_learner = function(learner_name) {
       # temporary workaround, see https://github.com/mlr-org/mlr3pipelines/issues/519
