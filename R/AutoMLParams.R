@@ -37,7 +37,9 @@ default_params = function(learner_list, task_type, num_effective_vars = NULL) {
   # trafo function can be safely set, if parameters are not used nothing happens
   ps$trafo = function(x, param_set) {
     x = xgboost_trafo(x, param_set, task_type)
-    x = ranger_trafo(x, param_set, task_type, num_effective_vars)
+    if (any(grepl("ranger", learner_list))) {
+      x = ranger_trafo(x, param_set, task_type, num_effective_vars)
+    }
     x = svm_trafo(x, param_set, task_type)
     x = liblinear_trafo(x, param_set, task_type)
   }
