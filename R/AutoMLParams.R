@@ -5,7 +5,7 @@ default_params = function(learner_list, task_type, num_effective_vars = NULL) {
   # model is selected during tuning as a branch of the GraphLearner
   ps = ParamSet$new(list(ParamFct$new("branch.selection", learner_list)))
   ps$add(
-    ParamDbl$new("subsample.frac", lower = 0.2, upper = 1, tags = "budget")
+    ParamDbl$new("subsample.frac", lower = 0.1, upper = 1, tags = "budget")
   )
 
   # update parameter set for all known learners
