@@ -87,9 +87,9 @@ AutoMLBase = R6Class("AutoMLBase",
       }
 
       self$learner_timeout = learner_timeout
-      self$tuning_terminator = trm("run_time", secs = 60)
+      self$tuning_terminator = terminator %??% trm("none")
 
-      self$tuner = tnr("hyperband", eta = 5L)
+      self$tuner = tnr("hyperband", eta = 3L)
       self$learner = private$.get_default_learner()
     },
     train = function(row_ids = NULL) {
