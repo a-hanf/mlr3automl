@@ -2,6 +2,7 @@
 
 export(AutoML)
 export(AutoMLBase)
+export(create_autotuner)
 import(checkmate)
 import(glmnet)
 import(mlr3, except = c(lrn, lrns))
