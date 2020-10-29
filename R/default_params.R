@@ -1,6 +1,5 @@
 # the parameter ranges are based on
 # https://docs.google.com/spreadsheets/d/1A8r5RgMxtRrL3nHVtFhO94DMTJ6qwkoOiakm7qj1e4g
-
 default_params = function(learner_list, task_type, num_effective_vars = NULL) {
   # model is selected during tuning as a branch of the GraphLearner
   ps = ParamSet$new(list(ParamFct$new("branch.selection", learner_list)))
