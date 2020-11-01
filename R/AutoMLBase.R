@@ -164,7 +164,7 @@ AutoMLBase = R6Class("AutoMLBase",
       # we always need imputation, because earlier preprocessing pipeops may introduce missing values
       pipeline = pipeline %>>%
         pipeline_robustify(task = self$task, learner = lrn(learner_name),
-                           impute_missings = TRUE, max_cardinality = 100)
+                           impute_missings = TRUE)
 
       # liblinear only works with columns of type double. Convert ints / bools -> dbl
       if (grepl('liblinear', learner_name)) {
