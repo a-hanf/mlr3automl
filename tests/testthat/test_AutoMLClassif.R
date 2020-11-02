@@ -3,13 +3,13 @@ test_that("performance is reasonable", {
     task = tsk(task_type, task_id)
     model = AutoML(task, learner_list = learners, resampling = rsmp("holdout"), terminator = terminator, learner_timeout = timeout)
     result = model$resample()
-    print(paste0("Performance on unseen data: ", result$aggregate(model$measures)))
-    expect_gte(result$aggregate(model$measures), min_performance)
+    print(paste0("Performance on unseen data: ", result$aggregate(model$measure)))
+    expect_gte(result$aggregate(model$measure), min_performance)
     return(result)
   }
 
   learners = NULL
-  terminator = trm("run_time", secs = 600)
+  terminator = trm("none")
   timeout = NULL
 
   res = test_classification_task("german_credit", "german_credit", 0.7, learners, terminator, timeout)

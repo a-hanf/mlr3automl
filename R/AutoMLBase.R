@@ -24,18 +24,18 @@
 #'   Budget (in seconds) for a single learner during training of the pipeline
 #' * `resampling` :: `Resampling` object from `mlr3tuning` \cr
 #'   Contains the resampling method to be used for hyper-parameter optimization
-#' * `measures` :: `Measure` object from `mlr_measures` \cr
+#' * `measure` :: `Measure` object from `mlr_measures` \cr
 #'   Contains the performance measure, for which we optimize during training
 #' * `tuning_terminator` :: `Terminator` object from `mlr3tuning` \cr
 #'   Contains the termination criterion for model tuning
-#' @section Methods
+#' @section Methods:
 #' * `train()` \cr
-#'   Runs the AutoML system. The trained model is saved in the $learner slot.
+#'   Trains the AutoML system.
 #' * `predict(data = NULL, row_ids = NULL)` \cr
 #'   `data.frame | data.table | Task -> PredictionClassif or PredictionRegr`
 #'   Returns a Prediction object for the given data based on the trained model.
 #'   If data is NULL, defaults to the task used for training
-#'   `resample(outer_resampling_holdout_ratio = 0.8)`
+#'   `resample()`
 #'   `double(1) -> ResampleResult`
 #'   Performs nested resampling with a train/test split as the outer resampling
 #' @rawNamespace import(mlr3, except = c(lrn, lrns))
@@ -51,7 +51,6 @@
 #' @import glmnet
 #' @import xgboost
 #' @importFrom R6 R6Class
-#' @export
 #' @name AutoMLBase
 #' @examples
 #' "add later"
@@ -62,18 +61,49 @@ AutoMLBase = R6Class("AutoMLBase",
     learner_timeout = NULL,
     learner = NULL,
     resampling = NULL,
-    measures = NULL,
+    measure = NULL,
     tuning_terminator = NULL,
     tuner = NULL,
+    #' @description
+    #' Creates a new AutoMLBase object
+    #' @param task
+    #' * `task` :: `Task` object from `mlr3` \cr
+    #'   Contains the task to be solved.
+    #' @param learner_list
+    #' * `learner_list` :: `List` of names for `mlr3 Learners` \cr
+    #'   Can be used to customize the learners to be tuned over. If no parameter space
+    #'   is defined for the selected learner, it will be run with default parameters.
+    #'   Default learners for classification: `c("classif.ranger", "classif.xgboost", "classif.liblinear")`,
+    #'   default learners for regression: `c("regr.ranger", "regr.xgboost", "regr.svm", "regr.liblinear", "regr.cv_glmnet")`.
+    #'   Might break mlr3automl if the learner is incompatible with the provided task.
+    #' @param learner_timeout
+    #' * `learner_timeout` :: `Integer` \cr
+    #'   Budget (in seconds) for a single learner during training of the pipeline.
+    #'   If this budget is exceeded, the learner is replaced with the fallback
+    #'   learner (`lrn("classif.featureless")` or `lrn("regr.featureless")`).
+    #' @param resampling
+    #' * `resampling` :: `Resampling` object from `mlr3tuning` \cr
+    #'   Contains the resampling method to be used for hyper-parameter optimization.
+    #'   Defaults to `rsmp("holdout")`.
+    #' @param measure
+    #' * `measure` :: `Measure` object from `mlr_measures` \cr
+    #'   Contains the performance measure, for which we optimize during training.
+    #'   Defaults to `msr("classif.acc")` for classification and `msr("regr.rmse")`
+    #'   for regression.
+    #' @param terminator
+    #' * `terminator` :: `Terminator` object from `mlr3tuning` \cr
+    #'   Contains the termination criterion for model tuning. Note that the Hyperband
+    #'   tuner might stop training before the budget is exhausted.
+    #'   Defaults to `trm("none")`
     initialize = function(task, learner_list = NULL, learner_timeout = NULL,
-                          resampling = NULL, measures = NULL, terminator = NULL) {
+                          resampling = NULL, measure = NULL, terminator = NULL) {
 
       assert_task(task)
       for (learner in learner_list) {
         testthat::expect_true(learner %in% mlr_learners$keys())
       }
       if (!is.null(resampling)) assert_resampling(resampling)
-      if (!is.null(measures)) assert_measure(measures)
+      if (!is.null(measure)) assert_measure(measure)
 
       self$task = task
       self$resampling = resampling %??% rsmp("holdout")
@@ -89,15 +119,29 @@ AutoMLBase = R6Class("AutoMLBase",
       self$learner_timeout = learner_timeout
       self$tuning_terminator = terminator %??% trm("none")
 
-      self$tuner = tnr("hyperband", eta = 3L)
+      self$tuner = tnr("hyperband", eta = 3)
       self$learner = private$.get_default_learner()
     },
+    #' @description
+    #' Train AutoML learner. Calls the `train` method of the associated `AutoTuner`
+    #' with the training instances in the given task.
+    #' @param row_ids
+    #' IDs of observations to be used for training. If no `row_ids` are provided,
+    #' trains on the entire data set.
     train = function(row_ids = NULL) {
       self$learner$train(self$task, row_ids)
       if (length(self$learner$learner$errors) > 0) {
         warning("An error occured during training. Fallback learner was used!")
       }
     },
+    #' @description
+    #' Make predictions for new observations
+    #' @param data
+    #' Optional. If provided, predictions are made on this dataset. Needs to have
+    #' the same format as data used for training.
+    #' @param row_ids
+    #' IDs of observations to be used for predictions If no `row_ids` are provided,
+    #' predictions are made for the entire dataset.
     predict = function(data = NULL, row_ids = NULL) {
       if (is.null(data)) {
         return(self$learner$predict(self$task, row_ids))
@@ -105,6 +149,10 @@ AutoMLBase = R6Class("AutoMLBase",
         return(self$learner$predict(data, row_ids))
       }
     },
+    #' @description
+    #' Convenience function for resampling with an AutoML Object. Performs nested
+    #' resampling with `$resampling` as inner resampling and `rsmp("holdout")`
+    #' as outer resampling.
     resample = function() {
       outer_resampling = rsmp("holdout")
       resample_result = mlr3::resample(self$task, self$learner, outer_resampling)
@@ -114,6 +162,9 @@ AutoMLBase = R6Class("AutoMLBase",
       }
       return(resample_result)
     },
+    #' @description
+    #' Convenience function for trained AutoML objects. Extracts the best
+    #' performing hyperparameters.
     tuned_params = function() {
       if (is.null(self$learner$state)) {
         warning("Model has not been trained. Run the $train() method first.")
@@ -129,7 +180,12 @@ AutoMLBase = R6Class("AutoMLBase",
         learners = append(learners, private$.create_robust_learner(learner))
       }
       names(learners) = self$learner_list
-      pipeline = po("subsample") %>>% ppl("branch", graphs = learners)
+      if (length(self$learner_list) > 1) {
+        pipeline = po("subsample") %>>% ppl("branch", graphs = learners)
+      } else {
+        pipeline = po("subsample") %>>% learners[[1]]
+      }
+
       graph_learner = GraphLearner$new(pipeline)
 
       if (!is.null(self$learner_timeout) || !is.infinite(self$learner_timeout)) {
@@ -151,7 +207,7 @@ AutoMLBase = R6Class("AutoMLBase",
       return(AutoTuner$new(
         learner = graph_learner,
         resampling = self$resampling,
-        measure = self$measures,
+        measure = self$measure,
         search_space = param_set,
         terminator = self$tuning_terminator,
         tuner = self$tuner))

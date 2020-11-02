@@ -1,10 +1,10 @@
 test_that("basic examples work", {
   test_regression_task = function(task_type, task_id, min_performance, learners = NULL, terminator = NULL, timeout = NULL) {
     task = tsk(task_type, task_id)
-    model = AutoML(task, measures = msr("regr.mae"), learner_list = learners, terminator = terminator, learner_timeout = timeout)
+    model = AutoML(task, measure = msr("regr.mae"), learner_list = learners, terminator = terminator, learner_timeout = timeout)
     result = model$resample()
-    print(paste0("Performance on unseen data: ", result$aggregate(model$measures)))
-    expect_lte(result$aggregate(model$measures), min_performance)
+    print(paste0("Performance on unseen data: ", result$aggregate(model$measure)))
+    expect_lte(result$aggregate(model$measure), min_performance)
     invisible(NULL)
   }
 
