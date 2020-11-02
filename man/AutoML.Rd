@@ -9,12 +9,43 @@ AutoML(
   learner_list = NULL,
   learner_timeout = NULL,
   resampling = NULL,
-  measures = NULL,
+  measure = NULL,
   terminator = NULL
 )
 }
+\arguments{
+\item{task}{* `task` :: `Task` object from `mlr3` \cr
+Contains the task to be solved.}
+
+\item{learner_list}{* `learner_list` :: `List` of names for `mlr3 Learners` \cr
+Can be used to customize the learners to be tuned over. If no parameter space
+is defined for the selected learner, it will be run with default parameters.
+Default learners for classification: `c("classif.ranger", "classif.xgboost", "classif.liblinear")`,
+default learners for regression: `c("regr.ranger", "regr.xgboost", "regr.svm", "regr.liblinear", "regr.cv_glmnet")`.
+Might break mlr3automl if the learner is incompatible with the provided task.}
+
+\item{learner_timeout}{* `learner_timeout` :: `Integer` \cr
+Budget (in seconds) for a single learner during training of the pipeline.
+If this budget is exceeded, the learner is replaced with the fallback
+learner (`lrn("classif.featureless")` or `lrn("regr.featureless")`).}
+
+\item{resampling}{* `resampling` :: `Resampling` object from `mlr3tuning` \cr
+Contains the resampling method to be used for hyper-parameter optimization.
+Defaults to `rsmp("holdout")`.}
+
+\item{measure}{* `measure` :: `Measure` object from `mlr_measures` \cr
+Contains the performance measure, for which we optimize during training.
+Defaults to `msr("classif.acc")` for classification and `msr("regr.rmse")`
+for regression.}
+
+\item{terminator}{* `terminator` :: `Terminator` object from `mlr3tuning` \cr
+Contains the termination criterion for model tuning. Note that the Hyperband
+tuner might stop training before the budget is exhausted.
+Defaults to `trm("none")`}
+}
 \value{
 ['AutoMLClassif' | 'AutoMLRegr']
+Returned class depends on the type of task.
 }
 \description{
 Interface for classes AutoMLClassif and AutoMLRegr.
