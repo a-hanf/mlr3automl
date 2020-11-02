@@ -1,9 +1,27 @@
-# the parameter ranges are based on
-# https://docs.google.com/spreadsheets/d/1A8r5RgMxtRrL3nHVtFhO94DMTJ6qwkoOiakm7qj1e4g
-
-default_params = function(learner_list, task_type, num_effective_vars = NULL) {
+#' @title Default parameter space for mlr3automl
+#' @description
+#' The parameter ranges are based on
+#  https://docs.google.com/spreadsheets/d/1A8r5RgMxtRrL3nHVtFhO94DMTJ6qwkoOiakm7qj1e4g
+#' @param learner_list
+#' * `learner_list` :: `List` of names for `mlr3 Learners` \cr
+#'   Can be used to customize the learners to be tuned over. If no parameter space
+#'   is defined for the selected learner, it will be run with default parameters.
+#'   Default learners for classification: `c("classif.ranger", "classif.xgboost", "classif.liblinear")`,
+#'   default learners for regression: `c("regr.ranger", "regr.xgboost", "regr.svm", "regr.liblinear", "regr.cv_glmnet")`.
+#'   Might break mlr3automl if the learner is incompatible with the provided task.
+#' @param task_type [`classif` | `regr`]
+#' String denoting the type of task
+#' @param num_effective_vars
+#' Number of features after preprocessing. Used to compute `mtry` for Random Forest.
+#' @return
+#' `paradox::ParamSet` containing the search space for the AutoML system
+default_params = function(learner_list, task_type, num_effective_vars = 1) {
   # model is selected during tuning as a branch of the GraphLearner
-  ps = ParamSet$new(list(ParamFct$new("branch.selection", learner_list)))
+  ps = ParamSet$new()
+
+  ps$add(
+    ParamDbl$new("subsample.frac", lower = 0.1, upper = 1, tags = "budget")
+  )
 
   # update parameter set for all known learners
   if (any(grepl("xgboost", learner_list))) {
@@ -23,30 +41,32 @@ default_params = function(learner_list, task_type, num_effective_vars = NULL) {
   }
 
   if (any(grepl("ranger", learner_list))) {
-    ps = add_ranger_params(ps, task_type, num_effective_vars)
-  }
-
-  # add dependencies for branch selection
-  for (learner in sub(paste0(task_type, "."), "", learner_list)) {
-    for (param in ps$ids(tags = learner)) {
-      ps$add_dep(param, "branch.selection",
-                 CondEqual$new(paste(task_type, learner, sep = ".")))
-    }
+    ps = add_ranger_params(ps, task_type)
   }
 
   # trafo function can be safely set, if parameters are not used nothing happens
   ps$trafo = function(x, param_set) {
     x = xgboost_trafo(x, param_set, task_type)
-    if (any(grepl("ranger", learner_list))) {
-      x = ranger_trafo(x, param_set, task_type, num_effective_vars)
-    }
+    x = ranger_trafo(x, param_set, task_type, num_effective_vars)
     x = svm_trafo(x, param_set, task_type)
     x = liblinear_trafo(x, param_set, task_type)
+  }
+
+  if (length(learner_list) > 1) {
+    ps$add(ParamFct$new("branch.selection", learner_list))
+    # add dependencies for branch selection
+    for (learner in sub(paste0(task_type, "."), "", learner_list)) {
+      for (param in ps$ids(tags = learner)) {
+        ps$add_dep(param, "branch.selection",
+                   CondEqual$new(paste(task_type, learner, sep = ".")))
+      }
+    }
   }
 
   return(ps)
 }
 
+# Parameter Transformation for XGBoost
 xgboost_trafo = function(x, param_set, task_type) {
   transformed_params = c("xgboost.eta", "xgboost.alpha", "xgboost.lambda",
                          "xgboost.rate_drop")
@@ -60,6 +80,7 @@ xgboost_trafo = function(x, param_set, task_type) {
   return(x)
 }
 
+# XGBoost parameters
 add_xgboost_params = function(param_set, task_type) {
   param_set$add(ParamSet$new(list(
     # choice of boosting algorithm
@@ -124,13 +145,15 @@ add_xgboost_params = function(param_set, task_type) {
   return(param_set)
 }
 
-ranger_trafo = function(x, param_set, task_type, num_effective_vars) {
+# Parameter transformations for Random Forest
+ranger_trafo = function(x, param_set, task_type, num_effective_vars = 1) {
   proposed_mtry = as.integer(num_effective_vars^x[[paste(task_type, "ranger.mtry", sep = ".")]])
   x[[paste(task_type, "ranger.mtry", sep = ".")]] = max(1, proposed_mtry)
   return(x)
 }
 
-add_ranger_params = function(param_set, task_type, num_effective_vars) {
+# Random Forest parameters
+add_ranger_params = function(param_set, task_type) {
   param_set$add(
     ParamDbl$new(paste(task_type, "ranger.mtry", sep = "."),
                  lower = 0.1, upper = 0.9, tags = "ranger"))
@@ -138,6 +161,7 @@ add_ranger_params = function(param_set, task_type, num_effective_vars) {
   return(param_set)
 }
 
+# glmnet parameters for logistic / linear regression
 add_glmnet_params = function(param_set, task_type) {
   param_set$add(
     ParamDbl$new(paste(task_type, "cv_glmnet.alpha", sep = "."),
@@ -146,6 +170,7 @@ add_glmnet_params = function(param_set, task_type) {
   return(param_set)
 }
 
+# Parameter transformations for e1071 SVM
 svm_trafo = function(x, param_set, task_type) {
   transformed_params = c("svm.cost", "svm.gamma")
   transformed_params = paste(task_type, transformed_params, sep = ".")
@@ -158,6 +183,7 @@ svm_trafo = function(x, param_set, task_type) {
   return(x)
 }
 
+# e1071 SVM parameters
 add_svm_params = function(param_set, task_type) {
   param_set$add(ParamSet$new(list(
     # kernel is always radial, other kernels are rarely better in our experience
@@ -184,26 +210,56 @@ add_svm_params = function(param_set, task_type) {
   return(param_set)
 }
 
+# Parameter transformations for liblinear learners
 liblinear_trafo = function(x, param_set, task_type) {
   for (param in names(x)) {
     if (grepl("liblinear.*cost", param)) {
       x[[param]] = 2^(x[[param]])
     }
+    if (grepl("liblinear.*type", param)) {
+      x[[param]] = as.integer(x[[param]])
+    }
   }
   return(x)
 }
 
+# liblinear parameters for SVM, logistic regression and Support Vector Regression
 add_liblinear_params = function(param_set, task_type) {
-  param_set$add(ParamDbl$new(paste(task_type, "liblinear.cost", sep = "."),
-                             lower = -10, upper = 3, default = 0, tags = "liblinear"))
+  if (task_type == "classif") {
+    param_set$add(ParamSet$new(list(
+      ParamFct$new("classif.liblinear.branch.selection",
+                   c("classif.liblinear.svm", "classif.liblinear.logreg"), tags = "liblinear"),
+      ParamDbl$new("classif.liblinear.logreg.cost", lower = -10, upper = 3,
+                   default = 0, tags = "liblinear"),
+      ParamDbl$new("classif.liblinear.svm.cost", lower = -10, upper = 3,
+                   default = 0, tags = "liblinear"))))
+    param_set$add_dep(
+      "classif.liblinear.logreg.cost", "classif.liblinear.branch.selection",
+      CondEqual$new("classif.liblinear.logreg"))
+    param_set$add_dep(
+      "classif.liblinear.svm.cost", "classif.liblinear.branch.selection",
+      CondEqual$new("classif.liblinear.svm"))
+  } else {
+    param_set$add(ParamDbl$new(paste(task_type, "liblinear.cost", sep = "."),
+                               lower = -10, upper = 3, default = 0, tags = "liblinear"))
+  }
+
   # for documentation on the types, see
   # https://www.rdocumentation.org/packages/LiblineaR/versions/2.10-8/topics/LiblineaR
   if (task_type == "classif") {
-    param_set$add(ParamInt$new(paste(task_type, "liblinear.type", sep = "."),
-                               lower = 6, upper = 7, default = 6, tags = "liblinear"))
+    param_set$add(ParamFct$new("classif.liblinear.logreg.type",
+                               c("0", "6", "7"), default = "0", tags = "liblinear"))
+    param_set$add_dep(
+      "classif.liblinear.logreg.type", "classif.liblinear.branch.selection",
+      CondEqual$new("classif.liblinear.logreg"))
+    param_set$add(ParamFct$new("classif.liblinear.svm.type", c("1", "2", "3", "4", "5"),
+                               default = "1", tags = "liblinear"))
+    param_set$add_dep(
+      "classif.liblinear.svm.type", "classif.liblinear.branch.selection",
+      CondEqual$new("classif.liblinear.svm"))
   } else {
-    param_set$add(ParamInt$new(paste(task_type, "liblinear.type", sep = "."),
-                               lower = 11, upper = 13, default = 11, tags = "liblinear"))
+    param_set$add(ParamFct$new(paste(task_type, "liblinear.type", sep = "."),
+                               c("11", "12", "13"), default = "11", tags = "liblinear"))
   }
 
   return(param_set)
