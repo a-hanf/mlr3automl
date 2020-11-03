@@ -230,40 +230,16 @@ liblinear_trafo = function(x, param_set, task_type) {
 
 # liblinear parameters for SVM, logistic regression and Support Vector Regression
 add_liblinear_params = function(param_set, task_type) {
-  if (task_type == "classif") {
-    param_set$add(ParamSet$new(list(
-      ParamFct$new("classif.liblinear.branch.selection",
-                   c("classif.liblinear.svm", "classif.liblinear.logreg"), tags = "liblinear"),
-      ParamDbl$new("classif.liblinear.logreg.cost", lower = -10, upper = 3,
-                   default = 0, tags = "liblinear"),
-      ParamDbl$new("classif.liblinear.svm.cost", lower = -10, upper = 3,
-                   default = 0, tags = "liblinear"))))
-    param_set$add_dep(
-      "classif.liblinear.logreg.cost", "classif.liblinear.branch.selection",
-      CondEqual$new("classif.liblinear.logreg"))
-    param_set$add_dep(
-      "classif.liblinear.svm.cost", "classif.liblinear.branch.selection",
-      CondEqual$new("classif.liblinear.svm"))
-  } else {
-    param_set$add(ParamDbl$new(paste(task_type, "liblinear.cost", sep = "."),
-                               lower = -10, upper = 3, default = 0, tags = "liblinear"))
-  }
+  param_set$add(ParamDbl$new(paste(task_type, "liblinear.cost", sep = "."),
+                             lower = -10, upper = 3, default = 0, tags = "liblinear"))
 
   # for documentation on the types, see
   # https://www.rdocumentation.org/packages/LiblineaR/versions/2.10-8/topics/LiblineaR
   if (task_type == "classif") {
-    param_set$add(ParamFct$new("classif.liblinear.logreg.type",
+    param_set$add(ParamFct$new("classif.liblinear.type",
                                c("0", "6", "7"), default = "0", tags = "liblinear"))
-    param_set$add_dep(
-      "classif.liblinear.logreg.type", "classif.liblinear.branch.selection",
-      CondEqual$new("classif.liblinear.logreg"))
-    param_set$add(ParamFct$new("classif.liblinear.svm.type", c("1", "2", "3", "4", "5"),
-                               default = "1", tags = "liblinear"))
-    param_set$add_dep(
-      "classif.liblinear.svm.type", "classif.liblinear.branch.selection",
-      CondEqual$new("classif.liblinear.svm"))
   } else {
-    param_set$add(ParamFct$new(paste(task_type, "liblinear.type", sep = "."),
+    param_set$add(ParamFct$new("regr.liblinear.type",
                                c("11", "12", "13"), default = "11", tags = "liblinear"))
   }
 

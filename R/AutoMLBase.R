@@ -235,18 +235,19 @@ AutoMLBase = R6Class("AutoMLBase",
       pipeline$update_ids(prefix = paste0(learner_name, "."))
 
       # liblinear learner offer logistic/linear regression as well as SVMs
-      # these are handled separately, as they do not share predict types
-      if (grepl('liblinear', learner_name) && self$task$task_type == "classif") {
-        liblinear_learners = list(
-          po("learner", lrn(learner_name, predict_type = "prob"), id = paste(learner_name, "logreg", sep = ".")),
-          po("learner", lrn(learner_name, predict_type = "response"), id = paste(learner_name, "svm", sep = ".")))
-        choices = c("classif.liblinear.logreg", "classif.liblinear.svm")
-        return(
-          pipeline %>>%
-          po("branch", choices, id = "classif.liblinear.branch") %>>%
-          gunion(graphs = liblinear_learners) %>>%
-          po("unbranch", choices, id = "classif.liblinear.unbranch"))
-      }
+      # SVMs do not offer probability predictions and can not be tuned for AUC
+      # thus, only use logistic regression for now
+      # if (grepl('liblinear', learner_name) && self$task$task_type == "classif") {
+      #   liblinear_learners = list(
+      #     po("learner", lrn(learner_name, predict_type = "prob"), id = paste(learner_name, "logreg", sep = ".")),
+      #     po("learner", lrn(learner_name, predict_type = "response"), id = paste(learner_name, "svm", sep = ".")))
+      #   choices = c("classif.liblinear.logreg", "classif.liblinear.svm")
+      #   return(
+      #     pipeline %>>%
+      #     po("branch", choices, id = "classif.liblinear.branch") %>>%
+      #     gunion(graphs = liblinear_learners) %>>%
+      #     po("unbranch", choices, id = "classif.liblinear.unbranch"))
+      # }
 
       # predict probabilities for classification if possible
       if (self$task$task_type == "classif" && ("prob" %in% lrn(learner_name)$predict_types)) {
