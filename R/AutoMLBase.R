@@ -200,6 +200,8 @@ AutoMLBase = R6Class("AutoMLBase",
 
       if (any(grepl("ranger", self$learner_list))) {
         num_effective_vars = private$.compute_num_effective_vars()
+      } else {
+        num_effective_vars = NULL
       }
 
       param_set = default_params(self$learner_list, self$task$task_type, num_effective_vars)

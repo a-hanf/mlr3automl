@@ -15,7 +15,7 @@
 #' Number of features after preprocessing. Used to compute `mtry` for Random Forest.
 #' @return
 #' `paradox::ParamSet` containing the search space for the AutoML system
-default_params = function(learner_list, task_type, num_effective_vars = 1) {
+default_params = function(learner_list, task_type, num_effective_vars) {
   # model is selected during tuning as a branch of the GraphLearner
   ps = ParamSet$new()
 
@@ -147,8 +147,13 @@ add_xgboost_params = function(param_set, task_type) {
 
 # Parameter transformations for Random Forest
 ranger_trafo = function(x, param_set, task_type, num_effective_vars = 1) {
-  proposed_mtry = as.integer(num_effective_vars^x[[paste(task_type, "ranger.mtry", sep = ".")]])
-  x[[paste(task_type, "ranger.mtry", sep = ".")]] = max(1, proposed_mtry)
+
+  transformed_param = paste(task_type, "ranger.mtry", sep = ".")
+  if (transformed_param %in% names(x)) {
+    proposed_mtry = as.integer(num_effective_vars^x[[transformed_param]])
+    x[[transformed_param]] = max(1, proposed_mtry)
+  }
+
   return(x)
 }
 
