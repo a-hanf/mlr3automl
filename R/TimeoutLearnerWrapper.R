@@ -22,10 +22,10 @@ LearnerWrapperExpire = R6Class("LearnerWrapperExpire", inherit = mlr3::Learner,
     expire_time = NULL,
     initialize = function(wrapped_learner, expire_time) {
       # initialize by basically copying everything from wrapped_learner to top level values
-      # encapsulate and fallback are set to "none" / NULL, because we only want to encapsulate once.
+      # fallback is set to NULL, because we only want to fall back once.
       # When the user calls $train(), the call goes like this (simplified):
-      # LearnerWrapperExpire$train --> mlr3:::learner_train --> [encapsulation, if required] --> LearnerWrapperExpire$private$.train -->
-      #   wrapped_learner$train --> mlr3:::learner_train --> [no encapsulation!] --> wrapped_learner$private$.train
+      # LearnerWrapperExpire$train --> mlr3:::learner_train --> ['evaluate' encapsulation] --> LearnerWrapperExpire$private$.train -->
+      #   wrapped_learner$train --> mlr3:::learner_train --> [learner's encapsulation] --> wrapped_learner$private$.train
       # similar for predict().
       assert_class(wrapped_learner, "Learner")
       super$initialize(wrapped_learner$id, wrapped_learner$task_type, ParamSet$new(),
@@ -33,10 +33,9 @@ LearnerWrapperExpire = R6Class("LearnerWrapperExpire", inherit = mlr3::Learner,
         properties = wrapped_learner$properties, data_formats = wrapped_learner$data_formats, packages = wrapped_learner$packages,
         man = wrapped_learner$man)
       private$.learner = wrapped_learner$clone(deep = TRUE)
-      self$encapsulate = private$.learner$encapsulate
       self$fallback = private$.learner$fallback
-      private$.learner$encapsulate = c(train = "none", predict = "none")
       private$.learner$fallback = NULL
+      self$encapsulate = map_chr(private$.learner$encapsulate, function(x) if (x == "none") "none" else "evaluate")
       self$expire_time = expire_time
     }
   ),
@@ -81,7 +80,15 @@ LearnerWrapperExpire = R6Class("LearnerWrapperExpire", inherit = mlr3::Learner,
       }
       on.exit({private$.learner$state = NULL})
       private$.learner$timeout = pmin(private$.learner$timeout, timeout)
+      inloglength = NROW(private$.learner$log)
       private$.learner$train(task)
+      outloglength = NROW(private$.learner$log)
+      loglines = seq_len(outloglength - inloglength) + inloglength
+      # print messages, throw errors etc. of learner.
+      for (i in seq_row(private$.learner$log)) {
+        curlog = private$.learner$log[i, ]
+        switch(as.character(curlog$class), output = message, warning = warning, error = stop)(curlog$msg)
+      }
       state = private$.learner$state
       state
     },
@@ -93,7 +100,16 @@ LearnerWrapperExpire = R6Class("LearnerWrapperExpire", inherit = mlr3::Learner,
       on.exit({private$.learner$state = NULL})
       private$.learner$timeout = pmin(private$.learner$timeout, timeout)
       private$.learner$state = self$model
-      private$.learner$predict(task)
+      inloglength = NROW(private$.learner$log)
+      result = private$.learner$predict(task)
+      outloglength = NROW(private$.learner$log)
+      loglines = seq_len(outloglength - inloglength) + inloglength
+      # print messages, throw errors etc. of learner.
+      for (i in seq_row(private$.learner$log)) {
+        curlog = private$.learner$log[i, ]
+        switch(as.character(curlog$class), output = message, warning = warning, error = stop)(curlog$msg)
+      }
+      result
     }
   )
 )
@@ -104,7 +120,7 @@ LearnerWrapperExpire = R6Class("LearnerWrapperExpire", inherit = mlr3::Learner,
 # may be present. A TerminatorRunTime is *not* necessary.
 # This is most useful when the learner in the TuningInstance is encapsulated with something
 # that allows hard timeouts, like 'callr' or similar.
-# The learner must have an encapsulation and a fallback learner.
+# The learner must have a fallback learner.
 TunerWrapperHardTimeout = R6Class("TunerWrapperTimeout", inherit = mlr3tuning::Tuner,
   public = list(
     param_set = NULL,
@@ -127,9 +143,6 @@ TunerWrapperHardTimeout = R6Class("TunerWrapperTimeout", inherit = mlr3tuning::T
 
         if (is.null(learner_orig$fallback)) {
           stopf("Learner %s must have a fallback learner.", learner_orig$id)
-        }
-        if ("none" %in% learner_orig$encapsulate) {
-          stopf("Learner %s must be encapsulated", learner_orig$id)
         }
 
         on.exit({inst$objective$learner = learner_orig})
