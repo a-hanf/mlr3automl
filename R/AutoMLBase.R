@@ -63,6 +63,7 @@ AutoMLBase = R6Class("AutoMLBase",
     resampling = NULL,
     measure = NULL,
     tuning_terminator = NULL,
+    runtime = NULL,
     tuner = NULL,
     #' @description
     #' Creates a new AutoMLBase object
@@ -78,9 +79,10 @@ AutoMLBase = R6Class("AutoMLBase",
     #'   Might break mlr3automl if the learner is incompatible with the provided task.
     #' @param learner_timeout
     #' * `learner_timeout` :: `Integer` \cr
-    #'   Budget (in seconds) for a single learner during training of the pipeline.
+    #'   Budget (in seconds) for a single learner during resampling of the pipeline.
     #'   If this budget is exceeded, the learner is replaced with the fallback
     #'   learner (`lrn("classif.featureless")` or `lrn("regr.featureless")`).
+    #'   When this is `NULL` (default), the learner timeout is set to `clock_time / 5`.
     #' @param resampling
     #' * `resampling` :: `Resampling` object from `mlr3tuning` \cr
     #'   Contains the resampling method to be used for hyper-parameter optimization.
@@ -90,13 +92,17 @@ AutoMLBase = R6Class("AutoMLBase",
     #'   Contains the performance measure, for which we optimize during training.
     #'   Defaults to `msr("classif.acc")` for classification and `msr("regr.rmse")`
     #'   for regression.
+    #' @param runtime
+    #'  * `runtime` :: `numeric(1)`\cr
+    #'    Number of seconds for which to run the optimization. Does *not* include training time of the final model.
     #' @param terminator
     #' * `terminator` :: `Terminator` object from `mlr3tuning` \cr
-    #'   Contains the termination criterion for model tuning. Note that the Hyperband
+    #'   Contains an optional additional termination criterion for model tuning. Note that the Hyperband
     #'   tuner might stop training before the budget is exhausted.
+    #'   Note also that no `runtime` terminator needs to be given, as the `runtime` is given separately.
     #'   Defaults to `trm("none")`
     initialize = function(task, learner_list = NULL, learner_timeout = NULL,
-                          resampling = NULL, measure = NULL, terminator = NULL) {
+                          resampling = NULL, measure = NULL, runtime = Inf, terminator = NULL) {
 
       assert_task(task)
       for (learner in learner_list) {
@@ -108,15 +114,8 @@ AutoMLBase = R6Class("AutoMLBase",
       self$task = task
       self$resampling = resampling %??% rsmp("holdout")
 
-      if (is.null(learner_timeout)) {
-        if (!is.null(terminator$param_set$values$secs)) {
-          learner_timeout = as.integer(terminator$param_set$values$secs / 5)
-        } else {
-          learner_timeout = Inf
-        }
-      }
-
-      self$learner_timeout = learner_timeout
+      self$runtime = assert_number(runtime, lower = 0)
+      self$learner_timeout = assert_number(learner_timeout, lower = 0, null.ok = TRUE) %??% runtime / 5  # maybe choose a larger divisor here
       self$tuning_terminator = terminator %??% trm("none")
 
       self$tuner = tnr("hyperband", eta = 3)
@@ -206,13 +205,40 @@ AutoMLBase = R6Class("AutoMLBase",
 
       param_set = default_params(self$learner_list, self$task$task_type, num_effective_vars)
 
+      tuner = self$tuner
+      if (any(grepl("\\.ranger$", self$learner_list))) {
+        if (length(self$learner_list) > 1) {
+          initial_design = data.table::data.table(
+            branch.selection = grep("\\.ranger$", self$learner_list, value = TRUE),
+            classif.ranger.mtry = .5,
+            subsample.frac = 1 - exp(-1)
+          )
+        } else {
+          initial_design = data.table::data.table(
+            classif.ranger.mtry = .5,
+            subsample.frac = 1 - exp(-1)
+          )
+        }
+        tuner = TunerChain$new(list(
+          tnr("design_points", design = initial_design),
+          tuner
+        ))
+      }
+      if (is.finite(self$runtime)) {
+        tuner = TunerWrapperHardTimeout$new(
+          tuner,
+          timeout = self$runtime
+        )
+      }
+
       return(AutoTuner$new(
         learner = graph_learner,
         resampling = self$resampling,
         measure = self$measure,
         search_space = param_set,
         terminator = self$tuning_terminator,
-        tuner = self$tuner))
+        tuner = tuner
+      ))
     },
     .create_robust_learner = function(learner_name) {
       # temporary workaround, see https://github.com/mlr-org/mlr3pipelines/issues/519

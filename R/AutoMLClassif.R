@@ -3,7 +3,7 @@ AutoMLClassif = R6Class(
   inherit = AutoMLBase,
   public = list(
     initialize = function(task, learner_list = NULL, learner_timeout = NULL,
-                          resampling = NULL, measure = NULL, terminator = NULL) {
+                          resampling = NULL, measure = NULL, runtime = Inf, terminator = NULL) {
       checkmate::assert_r6(task, "TaskClassif")
       self$measure = measure %??% mlr_measures$get("classif.acc")
       # exclude cv_glmnet and svm by default, because they are slow
@@ -12,7 +12,7 @@ AutoMLClassif = R6Class(
         "classif.liblinear")
       super$initialize(task = task, learner_list = self$learner_list,
                        learner_timeout = learner_timeout, resampling = resampling,
-                       measure = self$measure, terminator = terminator)
+                       measure = self$measure, runtime = runtime, terminator = terminator)
     }
   )
 )
