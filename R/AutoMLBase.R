@@ -60,6 +60,7 @@ AutoMLBase = R6Class("AutoMLBase",
     learner_list = NULL,
     learner_timeout = NULL,
     learner = NULL,
+    preprocessing = NULL,
     resampling = NULL,
     measure = NULL,
     tuning_terminator = NULL,
@@ -96,7 +97,8 @@ AutoMLBase = R6Class("AutoMLBase",
     #'   tuner might stop training before the budget is exhausted.
     #'   Defaults to `trm("none")`
     initialize = function(task, learner_list = NULL, learner_timeout = NULL,
-                          resampling = NULL, measure = NULL, terminator = NULL) {
+                          resampling = NULL, measure = NULL, terminator = NULL,
+                          preprocessing = NULL) {
 
       assert_task(task)
       assert_character(learner_list, any.missing = FALSE, min.len = 1)
@@ -108,6 +110,7 @@ AutoMLBase = R6Class("AutoMLBase",
 
       self$task = task
       self$resampling = resampling %??% rsmp("holdout")
+      self$preprocessing = preprocessing %??% "stability"
 
       if (is.null(learner_timeout)) {
         if (!is.null(terminator$param_set$values$secs)) {
@@ -167,7 +170,7 @@ AutoMLBase = R6Class("AutoMLBase",
     #' Convenience function for trained AutoML objects. Extracts the best
     #' performing hyperparameters.
     tuned_params = function() {
-      if (is.null(self$learner$state)) {
+      if (is.null(self$learner$tuning_instance$archive)) {
         warning("Model has not been trained. Run the $train() method first.")
       } else {
         return(self$learner$tuning_instance$archive$best())
@@ -176,36 +179,45 @@ AutoMLBase = R6Class("AutoMLBase",
   ),
   private = list(
     .get_default_learner = function() {
-      learners = list()
-      for (learner in self$learner_list) {
-        learners = append(learners, private$.create_robust_learner(learner))
+      # number of variables is needed for setting mtry in ranger
+      # also for setting max rank in PCA/ICA during feature preprocessing
+      if (any(grepl("ranger", self$learner_list)) || self$preprocessing == "full") {
+        feature_counts = private$.compute_num_effective_vars()
+      } else {
+        feature_counts = NULL
       }
+
+      preprocessing_pipeops = private$.get_preprocessing_pipeline(min(feature_counts[, "numeric_cols"]))
+
+      learners = lapply(self$learner_list, function(x) private$.create_robust_learner(x))
       names(learners) = self$learner_list
+      if (self$task$task_type == "classif") {
+        pipeline = preprocessing_pipeops %>>% po("subsample", stratify = TRUE)
+      } else {
+        pipeline = preprocessing_pipeops %>>% po("subsample")
+      }
+
       if (length(self$learner_list) > 1) {
-        pipeline = po("subsample") %>>% ppl("branch", graphs = learners)
+        pipeline =  pipeline %>>% ppl("branch", graphs = learners)
       } else {
-        pipeline = po("subsample") %>>% learners[[1]]
+        pipeline = pipeline %>>% learners[[1]]
       }
 
-      graph_learner = GraphLearner$new(pipeline)
+      graph_learner = GraphLearner$new(pipeline, id = "mlr3automl_pipeline")
 
-      if (!is.null(self$learner_timeout) || !is.infinite(self$learner_timeout)) {
-        # fallback learner is featureless learner for classification / regression
-        graph_learner$fallback = lrn(paste(self$task$task_type, '.featureless',
-                                           sep = ""))
-        # use callr encapsulation so we are able to kill model training, if it
-        # takes too long
-        graph_learner$encapsulate = c(train = "callr", predict = "callr")
-        graph_learner$timeout = c(train = self$learner_timeout, predict = self$learner_timeout)
-      }
+      # fallback learner is featureless learner for classification / regression
+      graph_learner$fallback = lrn(paste(self$task$task_type, '.featureless',
+                                         sep = ""))
+      # use callr encapsulation so we are able to kill model training, if it
+      # takes too long
+      graph_learner$encapsulate = c(train = "callr", predict = "callr")
+      graph_learner$timeout = c(train = self$learner_timeout,
+                                predict = self$learner_timeout)
 
-      if (any(grepl("ranger", self$learner_list))) {
-        num_effective_vars = private$.compute_num_effective_vars()
-      } else {
-        num_effective_vars = NULL
-      }
-
-      param_set = default_params(self$learner_list, self$task$task_type, num_effective_vars)
+      param_set = default_params(learner_list = self$learner_list,
+                                 feature_counts = feature_counts,
+                                 preprocessing = self$preprocessing,
+                                 feature_types = unique(self$task$feature_types$type))
 
       return(AutoTuner$new(
         learner = graph_learner,
@@ -215,40 +227,42 @@ AutoMLBase = R6Class("AutoMLBase",
         terminator = self$tuning_terminator,
         tuner = self$tuner))
     },
-    .create_robust_learner = function(learner_name) {
-      # temporary workaround, see https://github.com/mlr-org/mlr3pipelines/issues/519
-      pipeline = po("nop")
-
-      # robustify_pipeline takes care of imputation, factor encoding etc.
-      # we always need imputation, because earlier preprocessing pipeops may introduce missing values
-      pipeline = pipeline %>>%
-        pipeline_robustify(task = self$task, learner = lrn(learner_name),
-                           impute_missings = TRUE)
-
-      # liblinear only works with columns of type double. Convert ints / bools -> dbl
-      if (grepl('liblinear', learner_name)) {
-        pipeline = pipeline %>>%
-          po("colapply", applicator = as.numeric,
-             param_vals = list(affect_columns = selector_type(c("logical", "integer"))))
+    .get_preprocessing_pipeline = function(ncol_numeric = NULL) {
+      if (any(grepl("Graph|PipeOp", class(self$preprocessing)))) {
+        return(self$preprocessing)
+      } else  if (self$preprocessing == "none") {
+        return(NULL)
       }
 
-      # avoid name conflicts in pipeline
-      pipeline$update_ids(prefix = paste0(learner_name, "."))
+      stability_preprocessing = po("nop") %>>% pipeline_robustify(self$task, impute_missings = TRUE, factors_to_numeric = TRUE)
+      stability_preprocessing$update_ids(prefix = "stability.")
 
-      # liblinear learner offer logistic/linear regression as well as SVMs
-      # SVMs do not offer probability predictions and can not be tuned for AUC
-      # thus, only use logistic regression for now
-      # if (grepl('liblinear', learner_name) && self$task$task_type == "classif") {
-      #   liblinear_learners = list(
-      #     po("learner", lrn(learner_name, predict_type = "prob"), id = paste(learner_name, "logreg", sep = ".")),
-      #     po("learner", lrn(learner_name, predict_type = "response"), id = paste(learner_name, "svm", sep = ".")))
-      #   choices = c("classif.liblinear.logreg", "classif.liblinear.svm")
-      #   return(
-      #     pipeline %>>%
-      #     po("branch", choices, id = "classif.liblinear.branch") %>>%
-      #     gunion(graphs = liblinear_learners) %>>%
-      #     po("unbranch", choices, id = "classif.liblinear.unbranch"))
-      # }
+      if (self$preprocessing == "stability") {
+        return(stability_preprocessing)
+      }
+
+      # for feature preprocessing,  we add more imputation / encoding methods
+      # as well as dimensionality reduction pipeops and tune over their params
+
+      # first, add more imputation / encoding ops to existing pipeline
+      private$.extend_preprocessing(stability_preprocessing)
+
+      if (!is.null(ncol_numeric) && ncol_numeric >= 2) {
+        dimensionality_reduction = list(po("pca"), po("ica"), po("nop"))
+        names(dimensionality_reduction) = sapply(dimensionality_reduction, function(x) paste0("dimensionality.", x$id))
+        return(stability_preprocessing %>>% ppl("branch", graphs = dimensionality_reduction)$update_ids(prefix = "dimensionality."))
+      }
+
+      return(stability_preprocessing)
+    },
+    .create_robust_learner = function(learner_name) {
+      # liblinear only works with columns of type double. Convert ints / bools -> dbl
+      if (grepl('liblinear', learner_name)) {
+        pipeline = po("colapply", applicator = as.numeric,
+             param_vals = list(affect_columns = selector_type(c("logical", "integer"))))
+      } else {
+        pipeline = NULL
+      }
 
       # predict probabilities for classification if possible
       if (self$task$task_type == "classif" && ("prob" %in% lrn(learner_name)$predict_types)) {
@@ -258,18 +272,67 @@ AutoMLBase = R6Class("AutoMLBase",
       return(pipeline %>>% po("learner", lrn(learner_name)))
     },
     .compute_num_effective_vars = function() {
-      rf_learner = lrn(paste(self$task$task_type, 'ranger', sep = "."))
-
-      pipeline =
-        po("nop") %>>%
-        pipeline_robustify(task = self$task, learner = rf_learner, impute_missings = TRUE) %>>%
+      base_pipeline =
+        private$.get_preprocessing_pipeline() %>>%
         lrn(paste(self$task$task_type, '.featureless', sep = ""))
-      pipeline$train(self$task)
 
       # get number of variables after preprocessing
       last_pipeop = paste(self$task$task_type, '.featureless', sep = "")
-      num_effective_vars = get(last_pipeop, pipeline$state)$train_task$ncol - 1
-      return(num_effective_vars)
+
+      if (self$preprocessing != "full") {
+        base_pipeline$train(self$task)
+        output_task = get(last_pipeop, base_pipeline$state)$train_task
+        numeric_cols = nrow(output_task$feature_types[output_task$feature_types$type %in% c("numeric", "integer"), ])
+        all_cols = get(last_pipeop, base_pipeline$state)$train_task$ncol - 1
+        return(c(numeric_cols = numeric_cols, all_cols =  all_cols))
+      }
+
+      result = matrix(nrow = 2, ncol = 2, byrow = TRUE)
+      rownames(result) = c("one_hot_encoding", "impact_encoding")
+      colnames(result) = c("numeric_cols", "all_cols")
+
+      param_sets = list(
+        ParamSet$new(list(ParamFct$new("encoding.branch.selection", "stability.encode"))),
+        ParamSet$new(list(ParamFct$new("encoding.branch.selection", "stability.encodeimpact"))))
+
+      for (config_number in seq_along(param_sets)) {
+        model = AutoTuner$new(
+          GraphLearner$new(base_pipeline, id = "feature_preprocessing"),
+          resampling = rsmp("holdout"),
+          measure = self$measure,
+          search_space = param_sets[[config_number]],
+          terminator = trm("evals", n_evals = 1),
+          tuner = tnr("random_search")
+        )
+        model$train(self$task)
+        output_task = get(last_pipeop, model$learner$model)$train_task
+        numeric_cols = nrow(output_task$feature_types[output_task$feature_types$type %in% c("numeric", "integer"), ])
+        all_cols = output_task$ncol - 1
+        result[config_number, ] = c(numeric_cols, all_cols)
+      }
+      return(result)
+    },
+    .extend_preprocessing = function(current_pipeline) {
+      if ("stability.imputehist" %in% current_pipeline$ids())
+      replace_existing_node(current_pipeline,
+                            existing_pipeop = "stability.imputehist",
+                            pipeop_choices =  c("stability.imputehist", "stability.imputemean", "stability.imputemedian"),
+                            branching_prefix = "numeric.",
+                            columns = c("integer", "numeric"))
+
+      if ("stability.imputeoor" %in% current_pipeline$ids())
+      replace_existing_node(current_pipeline,
+                            existing_pipeop = "stability.imputeoor",
+                            pipeop_choices =  c("stability.imputemode", "stability.imputeoor"),
+                            branching_prefix = "factor.",
+                            columns = c("factor", "ordered", "character"))
+
+      if ("stability.encode" %in% current_pipeline$ids())
+      replace_existing_node(current_pipeline,
+                            existing_pipeop = "stability.encode",
+                            pipeop_choices =  c("stability.encode", "stability.encodeimpact"),
+                            branching_prefix = "encoding.",
+                            columns = c("integer", "numeric", "factor", "ordered", "character"))
     }
   )
 )
