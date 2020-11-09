@@ -4,12 +4,23 @@
 #' Small utility function, which creates an AutoTuner for given learners. The
 #' learner in this AutoTuner is a (somewhat complex) GraphLearner used in
 #' `mlr3automl`. Will be simplified when preprocessing operations are refactored.
-#' @param learner_list [`List of Learners`][mlr3::Learner] \cr
-#'   A list of learners
-#' @param task [`Task`] \cr
-#'   A [`Task`][mlr3::Task] to create the AutoTuner for. Influences the
-#'   preprocessing operations in the learner. Will be removed when preprocessing
-#'   operations are refactored.
+#' @param learner [mlr3::Learner] \cr
+#'   Learner inside the AutoTuner. Parameter sets are predefined for
+#'   `ranger`, `xgboost`, `liblinear`, `svm` and `cv_glmnet` learners for both
+#'   prediction and regression. Other learners will obtain empty parameter sets.
+#' @param resampling \cr
+#'   mlr3::Resampling object
+#' @param measure \cr
+#'   mlr3::Measure object
+#' @param terminator \cr
+#'   bbotk::Terminator object
+#' @param tuner \cr
+#'   mlr3tuning::Tuner object. Hyperband is supported by creating a
+#'   `GraphLearner` with `PipeOpSubsampling`.
+#' @param num_effective_vars \cr
+#'   Integer giving the number of features in the dataset. Only required for
+#'   parameter transformation of `mtry` in Random Forest (we are tuning over
+#'   `num_effective_vars^0.1` to `num_effective_vars^0.9`)
 #' @return [`AutoTuner`]
 #' @examples
 #' \donttest{

@@ -10,7 +10,8 @@ AutoML(
   learner_timeout = NULL,
   resampling = NULL,
   measure = NULL,
-  terminator = NULL
+  terminator = NULL,
+  preprocessing = NULL
 )
 }
 \arguments{
@@ -39,8 +40,8 @@ Defaults to `msr("classif.acc")` for classification and `msr("regr.rmse")`
 for regression.}
 
 \item{terminator}{* `terminator` :: `Terminator` object from `mlr3tuning` \cr
-Contains the termination criterion for model tuning. Note that the Hyperband
-tuner might stop training before the budget is exhausted.
+Contains the termination criterion for model tuning. Note that the
+Hyperband  tuner might stop training before the budget is exhausted.
 Defaults to `trm("none")`}
 }
 \value{

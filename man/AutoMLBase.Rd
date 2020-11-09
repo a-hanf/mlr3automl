@@ -36,12 +36,18 @@ AutoTuner for Hyperparameter Optimization and during training or resampling.
   Might break mlr3automl if the learner is incompatible with the provided task
 * `learner_timeout` :: `Integer` \cr
   Budget (in seconds) for a single learner during training of the pipeline
+* `preprocessing` :: `Character` \cr
+  Type of preprocessing to be used. Possible values are "none", "stability"
+  and "full". Alternatively, a `mlr3pipelines::Graph` object can be used
+  to specify a custom preprocessing pipeline.
 * `resampling` :: `Resampling` object from `mlr3tuning` \cr
   Contains the resampling method to be used for hyper-parameter optimization
 * `measure` :: `Measure` object from `mlr_measures` \cr
   Contains the performance measure, for which we optimize during training
-* `tuning_terminator` :: `Terminator` object from `mlr3tuning` \cr
+* `tuning_terminator` :: `Terminator` object from `bbotk` \cr
   Contains the termination criterion for model tuning
+* `tuner` :: `Tuner` object from `mlr3tuning` \cr
+  Type of tuning. We use Hyperband.
 }
 
 \section{Methods}{
@@ -83,7 +89,8 @@ Creates a new AutoMLBase object
   learner_timeout = NULL,
   resampling = NULL,
   measure = NULL,
-  terminator = NULL
+  terminator = NULL,
+  preprocessing = NULL
 )}\if{html}{\out{</div>}}
 }
 
@@ -118,6 +125,11 @@ for regression.}
 Contains the termination criterion for model tuning. Note that the Hyperband
 tuner might stop training before the budget is exhausted.
 Defaults to `trm("none")`}
+
+\item{\code{preprocessing}}{* `preprocessing` :: `Character` \cr
+Type of preprocessing to be used. Possible values are "none", "stability"
+and "full". Alternatively, a `mlr3pipelines::Graph` object can be used
+to specify a custom preprocessing pipeline.}
 }
 \if{html}{\out{</div>}}
 }
