@@ -99,8 +99,9 @@ AutoMLBase = R6Class("AutoMLBase",
                           resampling = NULL, measure = NULL, terminator = NULL) {
 
       assert_task(task)
+      assert_character(learner_list, any.missing = FALSE, min.len = 1)
       for (learner in learner_list) {
-        testthat::expect_true(learner %in% mlr_learners$keys())
+        assert_subset(learner, mlr_learners$keys())
       }
       if (!is.null(resampling)) assert_resampling(resampling)
       if (!is.null(measure)) assert_measure(measure)
