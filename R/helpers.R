@@ -1,9 +1,8 @@
 #' @title Create an AutoTuner with a single line of code
 #' @name create_autotuner
 #' @description
-#' Small utility function, which creates an AutoTuner for given learners. The
-#' learner in this AutoTuner is a (somewhat complex) GraphLearner used in
-#' `mlr3automl`. Will be simplified when preprocessing operations are refactored.
+#' Small utility function, which creates an AutoTuner for a given learner. The
+#' parameter spaces are identical to the ones used in `mlr3automl`.
 #' @param learner [mlr3::Learner] \cr
 #'   Learner inside the AutoTuner. Parameter sets are predefined for
 #'   `ranger`, `xgboost`, `liblinear`, `svm` and `cv_glmnet` learners for both

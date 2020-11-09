@@ -41,9 +41,8 @@ parameter transformation of `mtry` in Random Forest (we are tuning over
 [`AutoTuner`]
 }
 \description{
-Small utility function, which creates an AutoTuner for given learners. The
-learner in this AutoTuner is a (somewhat complex) GraphLearner used in
-`mlr3automl`. Will be simplified when preprocessing operations are refactored.
+Small utility function, which creates an AutoTuner for a given learner. The
+parameter spaces are identical to the ones used in `mlr3automl`.
 }
 \examples{
 \donttest{
