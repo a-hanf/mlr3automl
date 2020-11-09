@@ -13,64 +13,155 @@
 #' String denoting the type of task
 #' @param num_effective_vars
 #' Number of features after preprocessing. Used to compute `mtry` for Random Forest.
+#' @param using_hyperband
+#' For Tuning with Hyperband, a subsampling budget parameter is added to the pipeline.
+#' @param using_prefixes
+#' If `TRUE`, parameter IDs are prefixed with the `learner$id`. Used to avoid
+#' name conflicts in branched pipelines.
 #' @return
 #' `paradox::ParamSet` containing the search space for the AutoML system
-default_params = function(learner_list, task_type, num_effective_vars = 1) {
+default_params = function(learner_list, feature_counts,
+                          using_hyperband = TRUE, using_prefixes = TRUE,
+                          preprocessing = "stability",
+                          feature_types = NULL) {
   # model is selected during tuning as a branch of the GraphLearner
-  ps = ParamSet$new()
+  param_set = ParamSet$new()
+  task_type = sub("\\..*", "", learner_list[[1]])
 
-  ps$add(
-    ParamDbl$new("subsample.frac", lower = 0.1, upper = 1, tags = "budget")
-  )
+  param_set = add_preprocessing_params(param_set, preprocessing, using_hyperband, min(feature_counts[, "numeric_cols"]), feature_types)
 
   # update parameter set for all known learners
   if (any(grepl("xgboost", learner_list))) {
-    ps = add_xgboost_params(ps, task_type)
+    param_set = add_xgboost_params(param_set, task_type, using_prefixes)
   }
 
   if (any(grepl("cv_glmnet", learner_list))) {
-    ps = add_glmnet_params(ps, task_type)
+    param_set = add_glmnet_params(param_set, task_type, using_prefixes)
   }
 
   if (any(grepl("svm", learner_list))) {
-    ps = add_svm_params(ps, task_type)
+    param_set = add_svm_params(param_set, task_type, using_prefixes)
   }
 
   if (any(grepl("liblinear", learner_list))) {
-    ps = add_liblinear_params(ps, task_type)
+    param_set = add_liblinear_params(param_set, task_type, using_prefixes)
   }
 
   if (any(grepl("ranger", learner_list))) {
-    ps = add_ranger_params(ps, task_type)
+    param_set = add_ranger_params(param_set, task_type, using_prefixes)
   }
 
-  # trafo function can be safely set, if parameters are not used nothing happens
-  ps$trafo = function(x, param_set) {
-    x = xgboost_trafo(x, param_set, task_type)
-    x = ranger_trafo(x, param_set, task_type, num_effective_vars)
-    x = svm_trafo(x, param_set, task_type)
-    x = liblinear_trafo(x, param_set, task_type)
+  param_set$trafo = function(x, param_set) {
+    if (preprocessing == "full") {
+      x = preprocessing_trafo(x, param_set, task_type, feature_counts[, "numeric_cols"])
+    }
+
+    if (any(grepl("xgboost", learner_list))) {
+      x = xgboost_trafo(x, param_set, task_type, using_prefixes)
+    }
+
+    if (any(grepl("ranger", learner_list))) {
+      if (is.null(dim(feature_counts))) {
+        counts = feature_counts["all_cols"]
+      } else {
+        counts = feature_counts[, "all_cols"]
+      }
+      x = ranger_trafo(x, param_set, task_type, counts, using_prefixes)
+    }
+
+    if (any(grepl("svm", learner_list))) {
+      x = svm_trafo(x, param_set, task_type, using_prefixes)
+    }
+    if (any(grepl("liblinear", learner_list))) {
+      x = liblinear_trafo(x, param_set, task_type, using_prefixes)
+    }
   }
 
   if (length(learner_list) > 1) {
-    ps$add(ParamFct$new("branch.selection", learner_list))
+    param_set$add(ParamFct$new("branch.selection", learner_list))
     # add dependencies for branch selection
     for (learner in sub(paste0(task_type, "."), "", learner_list)) {
-      for (param in ps$ids(tags = learner)) {
-        ps$add_dep(param, "branch.selection",
+      for (param in param_set$ids(tags = learner)) {
+        param_set$add_dep(param, "branch.selection",
                    CondEqual$new(paste(task_type, learner, sep = ".")))
       }
     }
   }
 
-  return(ps)
+  return(param_set)
 }
 
+preprocessing_trafo = function(x, param_set, task_type, num_effective_vars) {
+  transformed_params = c("dimensionality.pca.rank.", "dimensionality.ica.n.comp")
+  if (!is.null(x$encoding.branch.selection) && x$encoding.branch.selection == "stability.encodeimpact") {
+    effective_vars = num_effective_vars['impact_encoding']
+  } else if (!is.null(x$encoding.branch.selection) && x$encoding.branch.selection == "stability.encode") {
+    effective_vars = num_effective_vars['one_hot_encoding']
+  } else {
+    effective_vars = num_effective_vars
+  }
+
+  for (param in names(x)) {
+    if (param %in% transformed_params) {
+      x[[param]] = min(x[[param]], effective_vars)
+    }
+  }
+
+  return(x)
+}
+
+add_preprocessing_params = function(param_set,
+                                    preprocessing = "stability",
+                                    using_hyperband = TRUE,
+                                    count_numeric_cols = NULL,
+                                    feature_types) {
+  # Hyperband uses subsampling rate as a fidelity parameter
+  if (using_hyperband) {
+    param_set$add(
+      ParamDbl$new("subsample.frac", lower = 0.1, upper = 1, tags = "budget")
+    )
+  }
+
+  # add feature preprocessing
+  if (preprocessing == "full") {
+    # numerical imputation only happens if ints/numerical columns are present in the dataset
+    if (length(intersect(c("integer", "numeric"), feature_types)) > 0) {
+      param_set$add(
+        ParamFct$new("numeric.branch.selection", c("stability.imputehist", "stability.imputemean", "stability.imputemedian"), default = "stability.imputemean"))
+    }
+
+    # factor imputation only happens if factors are present in the dataset
+    if (length(intersect(c("factor", "character", "ordered"), feature_types)) > 0) {
+      param_set$add(
+        ParamFct$new("factor.branch.selection", c("stability.imputeoor", "stability.imputemode"), default = "stability.imputeoor"))
+    }
+
+    # encoding always happens in robustify_pipeline
+    param_set$add(
+      ParamFct$new("encoding.branch.selection", c("stability.encode"), default = "stability.encode"))
+
+    # dimensionality reduction only makes sense for high dimensional data
+    if (count_numeric_cols >= 2) {
+      param_set$add(ParamSet$new(list(
+      ParamFct$new("dimensionality.branch.selection", c("dimensionality.nop", "dimensionality.pca", "dimensionality.ica"), default = "dimensionality.pca"),
+      ParamInt$new("dimensionality.pca.rank.", lower = 1, upper = count_numeric_cols, default = count_numeric_cols),
+      ParamInt$new("dimensionality.ica.n.comp", lower = 2, upper = count_numeric_cols, default = count_numeric_cols))))
+      param_set$add_dep("dimensionality.pca.rank.", "dimensionality.branch.selection", CondEqual$new("dimensionality.pca"))
+      param_set$add_dep("dimensionality.ica.n.comp", "dimensionality.branch.selection", CondEqual$new("dimensionality.ica"))
+    }
+  }
+
+  return(param_set)
+}
+
+
 # Parameter Transformation for XGBoost
-xgboost_trafo = function(x, param_set, task_type) {
-  transformed_params = c("xgboost.eta", "xgboost.alpha", "xgboost.lambda",
-                         "xgboost.rate_drop")
-  transformed_params = paste(task_type, transformed_params, sep = ".")
+xgboost_trafo = function(x, param_set, task_type, using_prefixes) {
+  transformed_params = get_transformed_param_names(
+    task_type = task_type,
+    learner_name = "xgboost",
+    params_to_transform = c("eta", "alpha", "lambda", "rate_drop"),
+    using_prefixes = using_prefixes)
 
   for (param in names(x)) {
     if (param %in% transformed_params) {
@@ -81,64 +172,64 @@ xgboost_trafo = function(x, param_set, task_type) {
 }
 
 # XGBoost parameters
-add_xgboost_params = function(param_set, task_type) {
+add_xgboost_params = function(param_set, task_type, using_prefixes) {
+  param_id_prefix = get_param_id_prefix(task_type, "xgboost", using_prefixes)
+
   param_set$add(ParamSet$new(list(
     # choice of boosting algorithm
-    ParamFct$new(paste(task_type, "xgboost.booster", sep = "."),
+    ParamFct$new(paste0(param_id_prefix, "booster"),
                  c("gbtree", "gblinear", "dart"), default = "gbtree", tags = "xgboost"),
     # additional parameters for dart
-    ParamFct$new(paste(task_type, "xgboost.sample_type", sep = "."),
+    ParamFct$new(paste0(param_id_prefix, "sample_type"),
                  c("uniform", "weighted"), default = "uniform", tags = "xgboost"),
-    ParamFct$new(paste(task_type, "xgboost.normalize_type", sep = "."),
+    ParamFct$new(paste0(param_id_prefix, "normalize_type"),
                  c("tree", "forest"), default = "tree", tags = "xgboost"),
-    ParamDbl$new(paste(task_type, "xgboost.rate_drop", sep = "."),
+    ParamDbl$new(paste0(param_id_prefix, "rate_drop"),
                  lower = -11, upper = 0, default = 0, tags = "xgboost"), # transformed with 10^x
 
     # learning rate
-    ParamDbl$new(paste(task_type, "xgboost.eta", sep = "."),
+    ParamDbl$new(paste0(param_id_prefix, "eta"),
                  lower = -4, upper = 0, default = -0.5, tags = "xgboost"), # transformed with 10^x
 
     # fidelity parameters
-    ParamInt$new(paste(task_type, "xgboost.nrounds", sep = "."),
+    ParamInt$new(paste0(param_id_prefix, "nrounds"),
                  lower = 1, upper = 1000, default = 1, tags = "xgboost"),
 
     # regularization parameters
-    ParamDbl$new(paste(task_type, "xgboost.alpha", sep = "."),
+    ParamDbl$new(paste0(param_id_prefix, "alpha"),
                  lower = -11, upper = -2, default = -11, tags = "xgboost"), # transformed with 10^x
-    ParamDbl$new(paste(task_type, "xgboost.lambda", sep = "."),
+    ParamDbl$new(paste0(param_id_prefix, "lambda"),
                  lower = -11, upper = -2, default = -11, tags = "xgboost"), # transformed with 10^x
 
     # subsampling parameters
-    ParamDbl$new(paste(task_type, "xgboost.subsample", sep = "."),
+    ParamDbl$new(paste0(param_id_prefix, "subsample"),
+                 lower = 0.5, upper = 1, default = 1, tags = "xgboost"),
+    ParamDbl$new(paste0(param_id_prefix, "colsample_bytree"),
                  lower = 0.1, upper = 1, default = 1, tags = "xgboost"),
-    ParamDbl$new(paste(task_type, "xgboost.colsample_bytree", sep = "."),
-                 lower = 0.1, upper = 1, default = 1, tags = "xgboost"),
-    ParamDbl$new(paste(task_type, "xgboost.colsample_bylevel", sep = "."),
+    ParamDbl$new(paste0(param_id_prefix, "colsample_bylevel"),
                  lower = 0.1, upper = 1, default = 1, tags = "xgboost"),
 
     # stopping criteria
-    ParamInt$new(paste(task_type, "xgboost.max_depth", sep = "."),
+    ParamInt$new(paste0(param_id_prefix, "max_depth"),
                  lower = 1, upper = 20, default = 6, tags = "xgboost"),
-    ParamInt$new(paste(task_type, "xgboost.min_child_weight", sep = "."),
+    ParamInt$new(paste0(param_id_prefix, "min_child_weight"),
                  lower = 1, upper = 20, default = 1, tags = "xgboost")
   )))
 
   # additional dependencies for parameters of dart booster
-  dart_params = c("xgboost.sample_type", "xgboost.rate_drop",
-                  "xgboost.normalize_type")
+  dart_params = paste0(param_id_prefix, c("sample_type", "rate_drop", "normalize_type"))
+
   for (param in dart_params) {
-    param_set$add_dep(paste(task_type, param, sep = "."),
-                      paste(task_type, "xgboost.booster", sep = "."),
-                      CondEqual$new("dart"))
+    param_set$add_dep(param, paste0(param_id_prefix, "booster"), CondEqual$new("dart"))
   }
 
   # dependencies for dart, gbtree booster
-  dart_gbtree_params = c("xgboost.colsample_bylevel", "xgboost.colsample_bytree",
-                         "xgboost.max_depth", "xgboost.min_child_weight",
-                         "xgboost.subsample")
+  dart_gbtree_params = paste0(param_id_prefix,
+                              c("colsample_bylevel", "colsample_bytree",
+                                "max_depth", "min_child_weight", "subsample"))
+
   for (param in dart_gbtree_params) {
-    param_set$add_dep(paste(task_type, param, sep = "."),
-                      paste(task_type, "xgboost.booster", sep = "."),
+    param_set$add_dep(param, paste0(param_id_prefix, "booster"),
                       CondAnyOf$new(c("dart", "gbtree")))
   }
 
@@ -146,34 +237,58 @@ add_xgboost_params = function(param_set, task_type) {
 }
 
 # Parameter transformations for Random Forest
-ranger_trafo = function(x, param_set, task_type, num_effective_vars = 1) {
-  proposed_mtry = as.integer(num_effective_vars^x[[paste(task_type, "ranger.mtry", sep = ".")]])
-  x[[paste(task_type, "ranger.mtry", sep = ".")]] = max(1, proposed_mtry)
+ranger_trafo = function(x, param_set, task_type, num_effective_vars, using_prefixes) {
+  transformed_param = get_transformed_param_names(
+    task_type = task_type,
+    learner_name = "ranger",
+    params_to_transform = "mtry",
+    using_prefixes = using_prefixes)
+
+  if (!is.null(x$dimensionality.ica.n.comp) || !is.null(x$dimensionality.pca.rank.)) {
+    effective_vars = x$dimensionality.ica.n.comp %??% x$dimensionality.pca.rank.
+  } else if (!is.null(x$encoding.branch.selection) && x$encoding.branch.selection == "stability.encodeimpact") {
+    effective_vars = num_effective_vars['impact_encoding']
+  } else if (!is.null(x$encoding.branch.selection) && x$encoding.branch.selection == "stability.encode") {
+    effective_vars = num_effective_vars['one_hot_encoding']
+  } else {
+    effective_vars = num_effective_vars
+  }
+
+  if (transformed_param %in% names(x)) {
+    proposed_mtry = as.integer(effective_vars^x[[transformed_param]])
+    x[[transformed_param]] = max(1, proposed_mtry)
+  }
+
   return(x)
 }
 
 # Random Forest parameters
-add_ranger_params = function(param_set, task_type) {
-  param_set$add(
-    ParamDbl$new(paste(task_type, "ranger.mtry", sep = "."),
-                 lower = 0.1, upper = 0.9, tags = "ranger"))
+add_ranger_params = function(param_set, task_type, using_prefixes) {
+  param_id_prefix = get_param_id_prefix(task_type, "ranger", using_prefixes)
 
+  param_set$add(ParamDbl$new(paste0(param_id_prefix, "mtry"),
+                             lower = 0.1, upper = 0.9, tags = "ranger"))
   return(param_set)
 }
 
 # glmnet parameters for logistic / linear regression
-add_glmnet_params = function(param_set, task_type) {
-  param_set$add(
-    ParamDbl$new(paste(task_type, "cv_glmnet.alpha", sep = "."),
-                 lower = 0, upper = 1, default = 0, tags = "cv_glmnet"))
+add_glmnet_params = function(param_set, task_type, using_prefixes) {
+  param_id_prefix = get_param_id_prefix(task_type, "cv_glmnet", using_prefixes)
+
+  param_set$add(ParamDbl$new(
+    paste0(param_id_prefix, "alpha"),
+    lower = 0, upper = 1, default = 0, tags = "cv_glmnet"))
 
   return(param_set)
 }
 
 # Parameter transformations for e1071 SVM
-svm_trafo = function(x, param_set, task_type) {
-  transformed_params = c("svm.cost", "svm.gamma")
-  transformed_params = paste(task_type, transformed_params, sep = ".")
+svm_trafo = function(x, param_set, task_type, using_prefixes) {
+  transformed_params = get_transformed_param_names(
+    task_type = task_type,
+    learner_name = "svm",
+    params_to_transform = c("cost", "gamma"),
+    using_prefixes = using_prefixes)
 
   for (param in names(x)) {
     if (param %in% transformed_params) {
@@ -184,39 +299,45 @@ svm_trafo = function(x, param_set, task_type) {
 }
 
 # e1071 SVM parameters
-add_svm_params = function(param_set, task_type) {
+add_svm_params = function(param_set, task_type, using_prefixes) {
+  param_id_prefix = get_param_id_prefix(task_type, "svm", using_prefixes)
+
   param_set$add(ParamSet$new(list(
     # kernel is always radial, other kernels are rarely better in our experience
-    ParamFct$new(paste(task_type, "svm.kernel", sep = "."),
+    ParamFct$new(paste0(param_id_prefix, "kernel"),
                  c("radial"), default = "radial", tags = "svm"),
-    ParamDbl$new(paste(task_type, "svm.cost", sep = "."),
+    ParamDbl$new(paste0(param_id_prefix, "cost"),
                  lower = -12, upper = 12, default = 0, tags = "svm"),
-    ParamDbl$new(paste(task_type, "svm.gamma", sep = "."),
+    ParamDbl$new(paste0(param_id_prefix, "gamma"),
                  lower = -12, upper = 12, default = 0, tags = "svm")
   )))
 
   if (task_type == "classif") {
-    param_set$add(
-      ParamFct$new(paste(task_type, "svm.type", sep = "."),
-                   c("C-classification"), default = "C-classification",
-                   tags = "svm"))
+    param_set$add(ParamFct$new(
+      paste0(param_id_prefix, "type"),
+      c("C-classification"), default = "C-classification", tags = "svm"))
   } else {
-    param_set$add(
-      ParamFct$new(paste(task_type, "svm.type", sep = "."),
-                   c("eps-regression"), default = "eps-regression",
-                   tags = "svm"))
+    param_set$add(ParamFct$new(
+      paste0(param_id_prefix, "type"),
+      c("eps-regression"), default = "eps-regression", tags = "svm"))
   }
 
   return(param_set)
 }
 
 # Parameter transformations for liblinear learners
-liblinear_trafo = function(x, param_set, task_type) {
+liblinear_trafo = function(x, param_set, task_type, using_prefixes) {
+  transformed_params = get_transformed_param_names(
+    task_type = task_type,
+    learner_name = "liblinear",
+    params_to_transform = c("cost", "type"),
+    using_prefixes = using_prefixes)
+
   for (param in names(x)) {
-    if (grepl("liblinear.*cost", param)) {
+    if (param %in% transformed_params && grepl("cost", param)) {
       x[[param]] = 2^(x[[param]])
     }
-    if (grepl("liblinear.*type", param)) {
+    if (param %in% transformed_params && grepl("type", param)) {
       x[[param]] = as.integer(x[[param]])
     }
   }
@@ -224,43 +345,35 @@ liblinear_trafo = function(x, param_set, task_type) {
 }
 
 # liblinear parameters for SVM, logistic regression and Support Vector Regression
-add_liblinear_params = function(param_set, task_type) {
-  if (task_type == "classif") {
-    param_set$add(ParamSet$new(list(
-      ParamFct$new("classif.liblinear.branch.selection",
-                   c("classif.liblinear.svm", "classif.liblinear.logreg"), tags = "liblinear"),
-      ParamDbl$new("classif.liblinear.logreg.cost", lower = -10, upper = 3,
-                   default = 0, tags = "liblinear"),
-      ParamDbl$new("classif.liblinear.svm.cost", lower = -10, upper = 3,
-                   default = 0, tags = "liblinear"))))
-    param_set$add_dep(
-      "classif.liblinear.logreg.cost", "classif.liblinear.branch.selection",
-      CondEqual$new("classif.liblinear.logreg"))
-    param_set$add_dep(
-      "classif.liblinear.svm.cost", "classif.liblinear.branch.selection",
-      CondEqual$new("classif.liblinear.svm"))
-  } else {
-    param_set$add(ParamDbl$new(paste(task_type, "liblinear.cost", sep = "."),
-                               lower = -10, upper = 3, default = 0, tags = "liblinear"))
-  }
+add_liblinear_params = function(param_set, task_type, using_prefixes) {
+  param_id_prefix = get_param_id_prefix(task_type, "liblinear", using_prefixes)
+
+  param_set$add(ParamDbl$new(paste0(param_id_prefix, "cost"),
+                             lower = -10, upper = 3, default = 0, tags = "liblinear"))
 
   # for documentation on the types, see
   # https://www.rdocumentation.org/packages/LiblineaR/versions/2.10-8/topics/LiblineaR
   if (task_type == "classif") {
-    param_set$add(ParamFct$new("classif.liblinear.logreg.type",
+    param_set$add(ParamFct$new(paste0(param_id_prefix, "type"),
                                c("0", "6", "7"), default = "0", tags = "liblinear"))
-    param_set$add_dep(
-      "classif.liblinear.logreg.type", "classif.liblinear.branch.selection",
-      CondEqual$new("classif.liblinear.logreg"))
-    param_set$add(ParamFct$new("classif.liblinear.svm.type", c("1", "2", "3", "4", "5"),
-                               default = "1", tags = "liblinear"))
-    param_set$add_dep(
-      "classif.liblinear.svm.type", "classif.liblinear.branch.selection",
-      CondEqual$new("classif.liblinear.svm"))
   } else {
-    param_set$add(ParamFct$new(paste(task_type, "liblinear.type", sep = "."),
+    param_set$add(ParamFct$new(paste0(param_id_prefix, "type"),
                                c("11", "12", "13"), default = "11", tags = "liblinear"))
   }
 
   return(param_set)
+}
+
+get_transformed_param_names = function(task_type, learner_name, params_to_transform, using_prefixes) {
+  if (!using_prefixes) {
+    return(params_to_transform)
+  }
+  return(paste(task_type, learner_name, params_to_transform, sep = "."))
+}
+
+get_param_id_prefix = function(task_type, learner_name, using_prefixes) {
+  if (using_prefixes) {
+    return(paste0(task_type, ".", learner_name, "."))
+  }
+  return("")
 }
