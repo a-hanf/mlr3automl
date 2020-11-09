@@ -25,7 +25,7 @@
 #' @examples
 #' \donttest{
 #' library(mlr3automl)
-#' my_autotuner = create_autotuner(c("classif.svm"))
+#' my_autotuner = create_autotuner(lrn("classif.svm"))
 #' }
 #' @export
 create_autotuner = function(

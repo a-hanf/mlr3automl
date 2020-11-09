@@ -48,6 +48,6 @@ learner in this AutoTuner is a (somewhat complex) GraphLearner used in
 \examples{
 \donttest{
 library(mlr3automl)
-my_autotuner = create_autotuner(c("classif.svm"))
+my_autotuner = create_autotuner(lrn("classif.svm"))
 }
 }
