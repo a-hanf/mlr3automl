@@ -28,8 +28,8 @@ test_that("performance is reasonable", {
   res = test_classification_task("oml", 12L, 0.75, learners, terminator, timeout, preprocessing)
 
   res = test_classification_task("oml", 53L, 0.6, learners, terminator, timeout, preprocessing)
-  res = test_classification_task("oml", 10101L, 0.7, learners, terminator, timeout, preprocessing)
-  res = test_classification_task("oml", 9952L, 0.7, learners, terminator, timeout, preprocessing)
+  res = test_classification_task("oml", 10101L, 0.8, learners, terminator, timeout, preprocessing)
+  res = test_classification_task("oml", 9952L, 0.85, learners, terminator, timeout, preprocessing)
   res = test_classification_task("oml", 9981L, 0.55, learners, terminator, timeout, preprocessing)
   res = test_classification_task("pima", "pima", 0.7, learners, terminator, timeout, preprocessing)
 
