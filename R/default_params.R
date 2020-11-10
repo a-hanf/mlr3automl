@@ -276,8 +276,11 @@ ranger_trafo = function(x, param_set, task_type, num_effective_vars, using_prefi
 add_ranger_params = function(param_set, task_type, using_prefixes) {
   param_id_prefix = get_param_id_prefix(task_type, "ranger", using_prefixes)
 
-  param_set$add(ParamDbl$new(paste0(param_id_prefix, "mtry"),
-                             lower = 0.1, upper = 0.9, tags = "ranger"))
+  param_set$add(ParamSet$new(list(
+    ParamDbl$new(paste0(param_id_prefix, "mtry"),
+                 lower = 0.1, upper = 0.9, default = 0.5, tags = "ranger"),
+    ParamFct$new(paste0(param_id_prefix, "splitrule"),
+                 c("gini", "extratrees"), default = "gini", tags = "ranger"))))
   return(param_set)
 }
 
