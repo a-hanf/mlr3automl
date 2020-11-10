@@ -168,7 +168,7 @@ xgboost_trafo = function(x, param_set, task_type, using_prefixes) {
   transformed_params = get_transformed_param_names(
     task_type = task_type,
     learner_name = "xgboost",
-    params_to_transform = c("eta", "alpha", "lambda", "rate_drop"),
+    params_to_transform = c("eta", "alpha", "lambda", "rate_drop", "gamma"),
     using_prefixes = using_prefixes)
 
   for (param in names(x)) {
@@ -213,15 +213,17 @@ add_xgboost_params = function(param_set, task_type, using_prefixes) {
     ParamDbl$new(paste0(param_id_prefix, "subsample"),
                  lower = 0.5, upper = 1, default = 1, tags = "xgboost"),
     ParamDbl$new(paste0(param_id_prefix, "colsample_bytree"),
-                 lower = 0.1, upper = 1, default = 1, tags = "xgboost"),
+                 lower = 0.5, upper = 1, default = 1, tags = "xgboost"),
     ParamDbl$new(paste0(param_id_prefix, "colsample_bylevel"),
-                 lower = 0.1, upper = 1, default = 1, tags = "xgboost"),
+                 lower = 0.5, upper = 1, default = 1, tags = "xgboost"),
 
     # stopping criteria
     ParamInt$new(paste0(param_id_prefix, "max_depth"),
-                 lower = 1, upper = 20, default = 6, tags = "xgboost"),
+                 lower = 3, upper = 20, default = 6, tags = "xgboost"),
     ParamInt$new(paste0(param_id_prefix, "min_child_weight"),
-                 lower = 1, upper = 20, default = 1, tags = "xgboost")
+                 lower = 1, upper = 20, default = 1, tags = "xgboost"),
+    ParamDbl$new(paste0(param_id_prefix, "gamma"),
+                 lower = -10, upper = 3, default = 0, tags = "xgboost") # transformed with 10^x
   )))
 
   # additional dependencies for parameters of dart booster
