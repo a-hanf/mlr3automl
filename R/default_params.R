@@ -135,13 +135,13 @@ add_preprocessing_params = function(param_set,
     # numerical imputation only happens if ints/numerical columns are present in the dataset
     if (length(intersect(c("integer", "numeric"), feature_types)) > 0) {
       param_set$add(
-        ParamFct$new("numeric.branch.selection", c("stability.imputehist", "stability.imputemean", "stability.imputemedian"), default = "stability.imputemean"))
+        ParamFct$new("numeric.branch.selection", c("imputation.imputehist", "imputation.imputemean", "imputation.imputemedian"), default = "imputation.imputemean"))
     }
 
     # factor imputation only happens if factors are present in the dataset
     if (length(intersect(c("factor", "character", "ordered"), feature_types)) > 0) {
       param_set$add(
-        ParamFct$new("factor.branch.selection", c("stability.imputeoor", "stability.imputemode"), default = "stability.imputeoor"))
+        ParamFct$new("factor.branch.selection", c("imputation.imputeoor", "imputation.imputemode", "imputation.imputesample"), default = "imputation.imputeoor"))
     }
 
     # encoding always happens in robustify_pipeline
