@@ -29,17 +29,21 @@
 #' @export
 create_autotuner = function(
   learner = lrn("classif.xgboost"), resampling = rsmp("cv", folds = 10),
-  measure, terminator = trm("run_time", secs = 60), tuner = tnr("random_search"),
+  measure = NULL, terminator = trm("run_time", secs = 60), tuner = tnr("random_search"),
   num_effective_vars = NULL) {
 
-  task_type = sub("\\..*", "", learner$id)
-  if (task_type == "classif") {
-    default_msr = msr("classif.acc")
-  } else  if (task_type == "regr") {
-    default_msr = msr("regr.rmse")
-  } else {
-    stop("Parameter sets are only defined for classification and regression.")
+  if (is.character(learner)) {
+    assert_character(learner, any.missing = FALSE, len = 1)
+    learner = lrn(learner)
   }
+
+  assert_learner(learner)
+  assert_resampling(resampling)
+  if (!is.null(measure)) assert_measure(measure)
+  assert_int(num_effective_vars, null.ok = TRUE)
+
+  task_type = sub("\\..*", "", learner$id)
+  default_msr = get(task_type, mlr_reflections$default_measures)
 
   if (grepl("ranger", learner$id) && is.null(num_effective_vars)) {
     warning("For tuning of Random Forest, the number of features in the dataset
@@ -54,14 +58,16 @@ create_autotuner = function(
     using_hyperband = FALSE
   }
 
-  params = default_params(learner$id, num_effective_vars, using_hyperband, using_prefixes = using_hyperband)
+  params = default_params(learner = learner$id,
+                          feature_counts = c(numeric_cols = num_effective_vars, all_cols = num_effective_vars),
+                          using_hyperband,
+                          using_prefixes = using_hyperband,
+                          preprocessing = "none")
 
   return(AutoTuner$new(
-    # TODO: make this work without the GraphLearner. We need to
-    # change the prefix of the params in default_params()
     learner = learner,
     resampling = resampling,
-    measure = measure %??% default_msr,
+    measure = measure %??% msr(default_msr),
     search_space = params,
     terminator = terminator,
     tuner = tuner))

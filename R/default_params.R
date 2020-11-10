@@ -27,8 +27,16 @@ default_params = function(learner_list, feature_counts,
   # model is selected during tuning as a branch of the GraphLearner
   param_set = ParamSet$new()
   task_type = sub("\\..*", "", learner_list[[1]])
+  if (!(task_type %in% c("classif", "regr"))) {
+    warning("Parameter sets have only been tested for classification and
+            regression. Check your results carefully.")
+  }
 
-  param_set = add_preprocessing_params(param_set, preprocessing, using_hyperband, min(feature_counts[, "numeric_cols"]), feature_types)
+  if (!is.null(dim(feature_counts))) {
+    param_set = add_preprocessing_params(param_set, preprocessing, using_hyperband, min(feature_counts[, "numeric_cols"]), feature_types)
+  } else {
+    param_set = add_preprocessing_params(param_set, preprocessing, using_hyperband, min(feature_counts["numeric_cols"]), feature_types)
+  }
 
   # update parameter set for all known learners
   if (any(grepl("xgboost", learner_list))) {
@@ -138,7 +146,7 @@ add_preprocessing_params = function(param_set,
 
     # encoding always happens in robustify_pipeline
     param_set$add(
-      ParamFct$new("encoding.branch.selection", c("stability.encode"), default = "stability.encode"))
+      ParamFct$new("encoding.branch.selection", c("stability.encode", "stability.encodeimpact"), default = "stability.encode"))
 
     # dimensionality reduction only makes sense for high dimensional data
     if (count_numeric_cols >= 2) {
