@@ -235,7 +235,7 @@ add_xgboost_params = function(param_set, task_type, using_prefixes) {
 
   # dependencies for dart, gbtree booster
   dart_gbtree_params = paste0(param_id_prefix,
-                              c("colsample_bylevel", "colsample_bytree",
+                              c("colsample_bylevel", "colsample_bytree", "gamma",
                                 "max_depth", "min_child_weight", "subsample"))
 
   for (param in dart_gbtree_params) {
