@@ -215,14 +215,14 @@ AutoMLBase = R6Class("AutoMLBase",
 
       graph_learner = GraphLearner$new(pipeline, id = "mlr3automl_pipeline")
 
-      # # fallback learner is featureless learner for classification / regression
-      # graph_learner$fallback = lrn(paste(self$task$task_type, '.featureless',
-      #                                    sep = ""))
-      # # use callr encapsulation so we are able to kill model training, if it
-      # # takes too long
-      # graph_learner$encapsulate = c(train = "callr", predict = "callr")
-      # graph_learner$timeout = c(train = self$learner_timeout,
-      #                           predict = self$learner_timeout)
+      # fallback learner is featureless learner for classification / regression
+      graph_learner$fallback = lrn(paste(self$task$task_type, '.featureless',
+                                         sep = ""))
+      # use callr encapsulation so we are able to kill model training, if it
+      # takes too long
+      graph_learner$encapsulate = c(train = "callr", predict = "callr")
+      graph_learner$timeout = c(train = self$learner_timeout,
+                                predict = self$learner_timeout)
 
       param_set = default_params(learner_list = self$learner_list,
                                  feature_counts = feature_counts,
@@ -230,24 +230,28 @@ AutoMLBase = R6Class("AutoMLBase",
                                  feature_types = unique(self$task$feature_types$type))
 
       tuner = self$tuner
-      if (any(grepl("\\.ranger$", self$learner_list))) {
-        if (length(self$learner_list) > 1) {
-          initial_design = data.table::data.table(
-            branch.selection = grep("\\.ranger$", self$learner_list, value = TRUE),
-            classif.ranger.mtry = .5,
-            subsample.frac = 1 - exp(-1)
-          )
-        } else {
-          initial_design = data.table::data.table(
-            classif.ranger.mtry = .5,
-            subsample.frac = 1 - exp(-1)
-          )
-        }
-        tuner = TunerChain$new(list(
-          tnr("design_points", design = initial_design),
-          tuner
-        ))
-      }
+      # if (any(grepl("\\.ranger$", self$learner_list))) {
+      #   if (length(self$learner_list) > 1) {
+      #     initial_design = data.table::data.table(
+      #       branch.selection = grep("\\.ranger$", self$learner_list, value = TRUE),
+      #       classif.ranger.mtry = .5,
+      #       subsample.frac = 1 - exp(-1)
+      #     )
+      #   } else {
+      #     initial_design = data.table::data.table(
+      #       classif.ranger.mtry = .5,
+      #       subsample.frac = 1 - exp(-1)
+      #     )
+      #   }
+      #   tuner = TunerChain$new(list(
+      #     tnr("design_points", design = initial_design),
+      #     tuner
+      #   ))
+      # }
+      tuner = TunerChain$new(list(
+        tuner,
+        tnr("random_search")
+      ))
       if (is.finite(self$runtime)) {
         tuner = TunerWrapperHardTimeout$new(
           tuner,

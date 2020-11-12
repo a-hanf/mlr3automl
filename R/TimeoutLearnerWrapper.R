@@ -35,7 +35,7 @@ LearnerWrapperExpire = R6Class("LearnerWrapperExpire", inherit = mlr3::Learner,
       private$.learner = wrapped_learner$clone(deep = TRUE)
       self$fallback = private$.learner$fallback
       private$.learner$fallback = NULL
-      self$encapsulate = map_chr(private$.learner$encapsulate, function(x) if (x == "none") "none" else "evaluate")
+      self$encapsulate = mlr3misc::map_chr(private$.learner$encapsulate, function(x) if (x == "none") "none" else "evaluate")
       self$expire_time = expire_time
     }
   ),
@@ -142,7 +142,7 @@ TunerWrapperHardTimeout = R6Class("TunerWrapperTimeout", inherit = mlr3tuning::T
         learner_orig = inst$objective$learner
 
         if (is.null(learner_orig$fallback)) {
-          stopf("Learner %s must have a fallback learner.", learner_orig$id)
+          mlr3misc::stopf("Learner %s must have a fallback learner.", learner_orig$id)
         }
 
         on.exit({inst$objective$learner = learner_orig})
@@ -187,9 +187,9 @@ OptimizerChain = R6Class("OptimizerChain", inherit = bbotk::Optimizer,
         param_sets[[i_opt]] = ps
       }
       super$initialize(param_set = ParamSetCollection$new(param_sets),
-        param_classes = Reduce(intersect, map(optimizers, "param_classes")),
-        properties = Reduce(intersect, map(optimizers, "properties")),
-        packages = unique(unlist(map(optimizers, "packages")))
+        param_classes = Reduce(intersect, mlr3misc::map(optimizers, "param_classes")),
+        properties = Reduce(intersect, mlr3misc::map(optimizers, "properties")),
+        packages = unique(unlist(mlr3misc::map(optimizers, "packages")))
       )
       private$.optimizers = optimizers
       private$.additional_terminators = additional_terminators
