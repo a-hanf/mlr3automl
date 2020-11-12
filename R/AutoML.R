@@ -28,8 +28,8 @@
 #'   for regression.
 #' @param terminator
 #' * `terminator` :: `Terminator` object from `mlr3tuning` \cr
-#'   Contains the termination criterion for model tuning. Note that the Hyperband
-#'   tuner might stop training before the budget is exhausted.
+#'   Contains the termination criterion for model tuning. Note that the
+#'   Hyperband  tuner might stop training before the budget is exhausted.
 #'   Defaults to `trm("none")`
 #' @return ['AutoMLClassif' | 'AutoMLRegr']
 #' Returned class depends on the type of task.
@@ -39,7 +39,8 @@
 #' automl_object = AutoML(tsk("iris"))
 #' }
 AutoML = function(task, learner_list = NULL, learner_timeout = NULL,
-                  resampling = NULL, measure = NULL, runtime = Inf, terminator = NULL) {
+                  resampling = NULL, measure = NULL, runtime = Inf, 
+                  terminator = NULL, preprocessing = NULL) {
   if (task$task_type == "classif") {
     # stratify target variable so that every target label appears
     # in all folds while resampling
@@ -48,10 +49,10 @@ AutoML = function(task, learner_list = NULL, learner_timeout = NULL,
       task$col_roles$stratum = task$target_names
     }
     return(AutoMLClassif$new(task, learner_list, learner_timeout,
-                             resampling, measure, runtime, terminator))
+                             resampling, measure, runtime, terminator, preprocessing))
   } else if (task$task_type == "regr") {
     return(AutoMLRegr$new(task, learner_list, learner_timeout,
-                          resampling, measure, runtime, terminator))
+                          resampling, measure, runtime, terminator, preprocessing))
   } else {
     stop("mlr3automl only supports classification and regression tasks for now")
   }

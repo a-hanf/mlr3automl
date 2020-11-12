@@ -4,28 +4,49 @@
 \alias{create_autotuner}
 \title{Create an AutoTuner with a single line of code}
 \usage{
-create_autotuner(learner_list = c("classif.ranger"), task = tsk("iris"))
+create_autotuner(
+  learner = lrn("classif.xgboost"),
+  resampling = rsmp("cv", folds = 10),
+  measure,
+  terminator = trm("run_time", secs = 60),
+  tuner = tnr("random_search"),
+  num_effective_vars = NULL
+)
 }
 \arguments{
-\item{learner_list}{[`List of Learners`][mlr3::Learner] \cr
-A list of learners}
+\item{learner}{[mlr3::Learner] \cr
+Learner inside the AutoTuner. Parameter sets are predefined for
+`ranger`, `xgboost`, `liblinear`, `svm` and `cv_glmnet` learners for both
+prediction and regression. Other learners will obtain empty parameter sets.}
 
-\item{task}{[`Task`] \cr
-A [`Task`][mlr3::Task] to create the AutoTuner for. Influences the
-preprocessing operations in the learner. Will be removed when preprocessing
-operations are refactored.}
+\item{resampling}{\cr
+mlr3::Resampling object}
+
+\item{measure}{\cr
+mlr3::Measure object}
+
+\item{terminator}{\cr
+bbotk::Terminator object}
+
+\item{tuner}{\cr
+mlr3tuning::Tuner object. Hyperband is supported by creating a
+`GraphLearner` with `PipeOpSubsampling`.}
+
+\item{num_effective_vars}{\cr
+Integer giving the number of features in the dataset. Only required for
+parameter transformation of `mtry` in Random Forest (we are tuning over
+`num_effective_vars^0.1` to `num_effective_vars^0.9`)}
 }
 \value{
 [`AutoTuner`]
 }
 \description{
-Small utility function, which creates an AutoTuner for given learners. The
-learner in this AutoTuner is a (somewhat complex) GraphLearner used in
-`mlr3automl`. Will be simplified when preprocessing operations are refactored.
+Small utility function, which creates an AutoTuner for a given learner. The
+parameter spaces are identical to the ones used in `mlr3automl`.
 }
 \examples{
 \donttest{
 library(mlr3automl)
-my_autotuner = create_autotuner(c("classif.svm"))
+my_autotuner = create_autotuner(lrn("classif.svm"))
 }
 }

@@ -4,7 +4,14 @@
 \alias{default_params}
 \title{Default parameter space for mlr3automl}
 \usage{
-default_params(learner_list, task_type, num_effective_vars = 1)
+default_params(
+  learner_list,
+  feature_counts,
+  using_hyperband = TRUE,
+  using_prefixes = TRUE,
+  preprocessing = "stability",
+  feature_types = NULL
+)
 }
 \arguments{
 \item{learner_list}{* `learner_list` :: `List` of names for `mlr3 Learners` \cr
@@ -13,6 +20,11 @@ is defined for the selected learner, it will be run with default parameters.
 Default learners for classification: `c("classif.ranger", "classif.xgboost", "classif.liblinear")`,
 default learners for regression: `c("regr.ranger", "regr.xgboost", "regr.svm", "regr.liblinear", "regr.cv_glmnet")`.
 Might break mlr3automl if the learner is incompatible with the provided task.}
+
+\item{using_hyperband}{For Tuning with Hyperband, a subsampling budget parameter is added to the pipeline.}
+
+\item{using_prefixes}{If `TRUE`, parameter IDs are prefixed with the `learner$id`. Used to avoid
+name conflicts in branched pipelines.}
 
 \item{task_type}{[`classif` | `regr`]
 String denoting the type of task}
