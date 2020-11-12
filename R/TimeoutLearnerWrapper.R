@@ -110,6 +110,12 @@ LearnerWrapperExpire = R6Class("LearnerWrapperExpire", inherit = mlr3::Learner,
         switch(as.character(curlog$class), output = message, warning = warning, error = stop)(curlog$msg)
       }
       result
+    },
+    deep_clone = function(name, value) {
+      switch(name,
+        .learner = value$clone(deep = TRUE),
+        super$deep_clone(name, value)
+      )
     }
   )
 )
@@ -214,7 +220,14 @@ OptimizerChain = R6Class("OptimizerChain", inherit = bbotk::Optimizer,
   ),
   private = list(
     .optimizers = NULL,
-    .additional_terminators = NULL
+    .additional_terminators = NULL,
+    deep_clone = function(name, value) {
+      switch(name,
+        .optimizers = lapply(value, function(x) x$clone(deep = TRUE)),
+        .additional_terminators = lapply(value, function(x) if (!is.null(x)) x$clone(deep = TRUE)),
+        value
+      )
+    }
   )
 )
 
