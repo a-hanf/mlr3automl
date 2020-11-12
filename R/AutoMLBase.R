@@ -269,11 +269,10 @@ AutoMLBase = R6Class("AutoMLBase",
       private$.extend_preprocessing(stability_preprocessing)
 
       if (!is.null(ncol_numeric) && ncol_numeric >= 2) {
-        dimensionality_reduction = list(po("pca"), po("ica"), po("nop"))
+        dimensionality_reduction = list(po("pca"), po("nop"))
         names(dimensionality_reduction) = sapply(dimensionality_reduction, function(x) paste0("dimensionality.", x$id))
         return(stability_preprocessing %>>% ppl("branch", graphs = dimensionality_reduction)$update_ids(prefix = "dimensionality."))
       }
-
       return(stability_preprocessing)
     },
     .create_robust_learner = function(learner_name) {
@@ -297,6 +296,9 @@ AutoMLBase = R6Class("AutoMLBase",
         private$.get_preprocessing_pipeline() %>>%
         lrn(paste(self$task$task_type, '.featureless', sep = ""))
 
+      result = matrix(nrow = 0, ncol = 2, byrow = TRUE)
+      colnames(result) = c("numeric_cols", "all_cols")
+
       # get number of variables after preprocessing
       last_pipeop = paste(self$task$task_type, '.featureless', sep = "")
 
@@ -305,12 +307,8 @@ AutoMLBase = R6Class("AutoMLBase",
         output_task = get(last_pipeop, base_pipeline$state)$train_task
         numeric_cols = nrow(output_task$feature_types[output_task$feature_types$type %in% c("numeric", "integer"), ])
         all_cols = get(last_pipeop, base_pipeline$state)$train_task$ncol - 1
-        return(c(numeric_cols = numeric_cols, all_cols =  all_cols))
+        return(rbind(result, "num_features" = c(numeric_cols, all_cols)))
       }
-
-      result = matrix(nrow = 2, ncol = 2, byrow = TRUE)
-      rownames(result) = c("one_hot_encoding", "impact_encoding")
-      colnames(result) = c("numeric_cols", "all_cols")
 
       param_sets = list(
         ParamSet$new(list(ParamFct$new("encoding.branch.selection", "stability.encode"))),
@@ -329,8 +327,10 @@ AutoMLBase = R6Class("AutoMLBase",
         output_task = get(last_pipeop, model$learner$model)$train_task
         numeric_cols = nrow(output_task$feature_types[output_task$feature_types$type %in% c("numeric", "integer"), ])
         all_cols = output_task$ncol - 1
-        result[config_number, ] = c(numeric_cols, all_cols)
+        result = rbind(result, c(numeric_cols, all_cols))
       }
+
+      rownames(result) = c("one_hot_encoding", "impact_encoding")
       return(result)
     },
     .extend_preprocessing = function(current_pipeline) {

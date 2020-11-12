@@ -32,11 +32,7 @@ default_params = function(learner_list, feature_counts,
             regression. Check your results carefully.")
   }
 
-  if (!is.null(dim(feature_counts))) {
-    param_set = add_preprocessing_params(param_set, preprocessing, using_hyperband, min(feature_counts[, "numeric_cols"]), feature_types)
-  } else {
-    param_set = add_preprocessing_params(param_set, preprocessing, using_hyperband, min(feature_counts["numeric_cols"]), feature_types)
-  }
+  param_set = add_preprocessing_params(param_set, preprocessing, using_hyperband, min(feature_counts[, "numeric_cols"]), feature_types)
 
   # update parameter set for all known learners
   if (any(grepl("xgboost", learner_list))) {
@@ -69,11 +65,7 @@ default_params = function(learner_list, feature_counts,
     }
 
     if (any(grepl("ranger", learner_list))) {
-      if (is.null(dim(feature_counts))) {
-        counts = feature_counts["all_cols"]
-      } else {
-        counts = feature_counts[, "all_cols"]
-      }
+      counts = feature_counts[, "all_cols"]
       x = ranger_trafo(x, param_set, task_type, counts, using_prefixes)
     }
 
@@ -100,7 +92,7 @@ default_params = function(learner_list, feature_counts,
 }
 
 preprocessing_trafo = function(x, param_set, task_type, num_effective_vars) {
-  transformed_params = c("dimensionality.pca.rank.", "dimensionality.ica.n.comp")
+  transformed_params = c("dimensionality.pca.rank.")
   if (!is.null(x$encoding.branch.selection) && x$encoding.branch.selection == "stability.encodeimpact") {
     effective_vars = num_effective_vars['impact_encoding']
   } else if (!is.null(x$encoding.branch.selection) && x$encoding.branch.selection == "stability.encode") {
@@ -111,10 +103,9 @@ preprocessing_trafo = function(x, param_set, task_type, num_effective_vars) {
 
   for (param in names(x)) {
     if (param %in% transformed_params) {
-      x[[param]] = min(x[[param]], effective_vars)
+      x[[param]] = max(1, as.integer(as.numeric(x[[param]]) * effective_vars))
     }
   }
-
   return(x)
 }
 
@@ -135,7 +126,10 @@ add_preprocessing_params = function(param_set,
     # numerical imputation only happens if ints/numerical columns are present in the dataset
     if (length(intersect(c("integer", "numeric"), feature_types)) > 0) {
       param_set$add(
-        ParamFct$new("numeric.branch.selection", c("imputation.imputehist", "imputation.imputemean", "imputation.imputemedian"), default = "imputation.imputemean"))
+        # histogram imputation is removed until this issue is fixed:
+        # https://github.com/mlr-org/mlr3pipelines/issues/545
+        # ParamFct$new("numeric.branch.selection", c("imputation.imputehist", "imputation.imputemean", "imputation.imputemedian"), default = "imputation.imputemean"))
+        ParamFct$new("numeric.branch.selection", c("imputation.imputemean", "imputation.imputemedian"), default = "imputation.imputemean"))
     }
 
     # factor imputation only happens if factors are present in the dataset
@@ -151,11 +145,10 @@ add_preprocessing_params = function(param_set,
     # dimensionality reduction only makes sense for high dimensional data
     if (count_numeric_cols >= 2) {
       param_set$add(ParamSet$new(list(
-      ParamFct$new("dimensionality.branch.selection", c("dimensionality.nop", "dimensionality.pca", "dimensionality.ica"), default = "dimensionality.pca"),
-      ParamInt$new("dimensionality.pca.rank.", lower = 1, upper = count_numeric_cols, default = count_numeric_cols),
-      ParamInt$new("dimensionality.ica.n.comp", lower = 2, upper = count_numeric_cols, default = count_numeric_cols))))
+        # ICA has been removed for now due to performance issues
+        ParamFct$new("dimensionality.branch.selection", c("dimensionality.nop", "dimensionality.pca"), default = "dimensionality.nop"),
+        ParamFct$new("dimensionality.pca.rank.", c("0.1", "0.5", "1"), default = "1"))))
       param_set$add_dep("dimensionality.pca.rank.", "dimensionality.branch.selection", CondEqual$new("dimensionality.pca"))
-      param_set$add_dep("dimensionality.ica.n.comp", "dimensionality.branch.selection", CondEqual$new("dimensionality.ica"))
     }
   }
 
@@ -223,7 +216,7 @@ add_xgboost_params = function(param_set, task_type, using_prefixes) {
     ParamInt$new(paste0(param_id_prefix, "min_child_weight"),
                  lower = 1, upper = 20, default = 1, tags = "xgboost"),
     ParamDbl$new(paste0(param_id_prefix, "gamma"),
-                 lower = -10, upper = 3, default = 0, tags = "xgboost") # transformed with 10^x
+                 lower = -4, upper = 2, default = 0, tags = "xgboost") # transformed with 10^x
   )))
 
   # additional dependencies for parameters of dart booster
