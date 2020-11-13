@@ -48,6 +48,7 @@
 #' @import mlr3learners
 #' @import mlr3extralearners
 #' @import mlr3hyperband
+#' @import mlr3misc
 #' @import mlr3oml
 #' @import mlr3pipelines
 #' @import mlr3tuning
@@ -122,6 +123,7 @@ AutoMLBase = R6Class("AutoMLBase",
       for (learner in learner_list) {
         assert_subset(learner, mlr_learners$keys())
       }
+
       if (!is.null(resampling)) assert_resampling(resampling)
       if (!is.null(measure)) assert_measure(measure)
 
@@ -230,28 +232,13 @@ AutoMLBase = R6Class("AutoMLBase",
                                  feature_types = unique(self$task$feature_types$type))
 
       tuner = self$tuner
-      # if (any(grepl("\\.ranger$", self$learner_list))) {
-      #   if (length(self$learner_list) > 1) {
-      #     initial_design = data.table::data.table(
-      #       branch.selection = grep("\\.ranger$", self$learner_list, value = TRUE),
-      #       classif.ranger.mtry = .5,
-      #       subsample.frac = 1 - exp(-1)
-      #     )
-      #   } else {
-      #     initial_design = data.table::data.table(
-      #       classif.ranger.mtry = .5,
-      #       subsample.frac = 1 - exp(-1)
-      #     )
-      #   }
-      #   tuner = TunerChain$new(list(
-      #     tnr("design_points", design = initial_design),
-      #     tuner
-      #   ))
-      # }
+      initial_design = get_portfolio_design(self$task$task_type, param_set)
       tuner = TunerChain$new(list(
+        tnr("design_points", design = initial_design),
         tuner,
         tnr("random_search")
       ))
+
       if (is.finite(self$runtime)) {
         tuner = TunerWrapperHardTimeout$new(
           tuner,

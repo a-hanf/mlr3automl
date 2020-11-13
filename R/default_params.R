@@ -55,6 +55,22 @@ default_params = function(learner_list, feature_counts,
     param_set = add_ranger_params(param_set, task_type, using_prefixes)
   }
 
+  if (length(learner_list) > 1) {
+    # featureless learner is contained in pipeline for the portfolio, but
+    # we do not want to select it during tuning
+    active_learners = learner_list[!grepl("featureless", learner_list)]
+
+    param_set$add(ParamFct$new("branch.selection", active_learners,
+                               special_vals = list(paste0(task_type, ".featureless"))))
+    # add dependencies for branch selection
+    for (learner in sub(paste0(task_type, "."), "", active_learners)) {
+      for (param in param_set$ids(tags = learner)) {
+        param_set$add_dep(param, "branch.selection",
+                   CondEqual$new(paste(task_type, learner, sep = ".")))
+      }
+    }
+  }
+
   param_set$trafo = function(x, param_set) {
     if (preprocessing == "full") {
       x = preprocessing_trafo(x, param_set, task_type, feature_counts[, "numeric_cols"])
@@ -74,17 +90,6 @@ default_params = function(learner_list, feature_counts,
     }
     if (any(grepl("liblinear", learner_list))) {
       x = liblinear_trafo(x, param_set, task_type, using_prefixes)
-    }
-  }
-
-  if (length(learner_list) > 1) {
-    param_set$add(ParamFct$new("branch.selection", learner_list))
-    # add dependencies for branch selection
-    for (learner in sub(paste0(task_type, "."), "", learner_list)) {
-      for (param in param_set$ids(tags = learner)) {
-        param_set$add_dep(param, "branch.selection",
-                   CondEqual$new(paste(task_type, learner, sep = ".")))
-      }
     }
   }
 
