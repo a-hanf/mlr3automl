@@ -85,7 +85,7 @@ LearnerWrapperExpire = R6Class("LearnerWrapperExpire", inherit = mlr3::Learner,
       outloglength = NROW(private$.learner$log)
       loglines = seq_len(outloglength - inloglength) + inloglength
       # print messages, throw errors etc. of learner.
-      for (i in seq_row(private$.learner$log)) {
+      for (i in mlr3misc::seq_row(private$.learner$log)) {
         curlog = private$.learner$log[i, ]
         switch(as.character(curlog$class), output = message, warning = warning, error = stop)(curlog$msg)
       }
@@ -105,7 +105,7 @@ LearnerWrapperExpire = R6Class("LearnerWrapperExpire", inherit = mlr3::Learner,
       outloglength = NROW(private$.learner$log)
       loglines = seq_len(outloglength - inloglength) + inloglength
       # print messages, throw errors etc. of learner.
-      for (i in seq_row(private$.learner$log)) {
+      for (i in mlr3misc::seq_row(private$.learner$log)) {
         curlog = private$.learner$log[i, ]
         switch(as.character(curlog$class), output = message, warning = warning, error = stop)(curlog$msg)
       }
