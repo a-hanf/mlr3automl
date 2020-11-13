@@ -301,7 +301,7 @@ AutoMLBase = R6Class("AutoMLBase",
       if (!is.null(ncol_numeric) && ncol_numeric >= 2) {
         dimensionality_reduction = list(po("pca"), po("nop"))
         names(dimensionality_reduction) = sapply(dimensionality_reduction, function(x) paste0("dimensionality.", x$id))
-        return(stability_preprocessing %>>% ppl("branch", graphs = dimensionality_reduction)$update_ids(prefix = "dimensionality."))
+        return(stability_preprocessing %>>% po("scale") %>>% ppl("branch", graphs = dimensionality_reduction)$update_ids(prefix = "dimensionality."))
       }
       return(stability_preprocessing)
     },

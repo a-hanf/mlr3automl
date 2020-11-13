@@ -103,7 +103,7 @@ preprocessing_trafo = function(x, param_set, task_type, num_effective_vars) {
 
   for (param in names(x)) {
     if (param %in% transformed_params) {
-      x[[param]] = max(1, as.integer(as.numeric(x[[param]]) * effective_vars))
+      x[[param]] = min(x[[param]], effective_vars)
     }
   }
   return(x)
@@ -147,7 +147,7 @@ add_preprocessing_params = function(param_set,
       param_set$add(ParamSet$new(list(
         # ICA has been removed for now due to performance issues
         ParamFct$new("dimensionality.branch.selection", c("dimensionality.nop", "dimensionality.pca"), default = "dimensionality.nop"),
-        ParamFct$new("dimensionality.pca.rank.", c("0.1", "0.5", "1"), default = "1"))))
+        ParamInt$new("dimensionality.pca.rank.", lower = 1, upper = count_numeric_cols, default = count_numeric_cols))))
       param_set$add_dep("dimensionality.pca.rank.", "dimensionality.branch.selection", CondEqual$new("dimensionality.pca"))
     }
   }
