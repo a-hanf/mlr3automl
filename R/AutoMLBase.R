@@ -235,8 +235,8 @@ AutoMLBase = R6Class("AutoMLBase",
       initial_design = get_portfolio_design(self$task$task_type, param_set)
       tuner = TunerChain$new(list(
         tnr("design_points", design = initial_design),
-        tuner,
-        tnr("random_search")
+        tnr("hyperband", eta = 3L),
+        tnr("hyperband", eta = 5L)
       ))
 
       if (is.finite(self$runtime)) {
