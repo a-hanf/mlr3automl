@@ -325,11 +325,16 @@ AutoMLBase = R6Class("AutoMLBase",
       last_pipeop = paste(self$task$task_type, '.featureless', sep = "")
 
       if (self$preprocessing != "full") {
-        base_pipeline$train(self$task)
-        output_task = get(last_pipeop, base_pipeline$state)$train_task
-        numeric_cols = nrow(output_task$feature_types[output_task$feature_types$type %in% c("numeric", "integer"), ])
-        all_cols = get(last_pipeop, base_pipeline$state)$train_task$ncol - 1
-        return(rbind(result, "num_features" = c(numeric_cols, all_cols)))
+        base_learner = GraphLearner$new(base_pipeline)
+        base_learner$encapsulate = c(train = "callr", predict = "callr")
+        base_learner$train(self$task)
+        if (!is.null(base_learner$state)) {
+          output_task = get(last_pipeop, base_pipeline$graph$state)$train_task
+          numeric_cols = nrow(output_task$feature_types[output_task$feature_types$type %in% c("numeric", "integer"), ])
+          all_cols = get(last_pipeop, base_pipeline$state)$train_task$ncol - 1
+          return(rbind(result, "num_features" = c(numeric_cols, all_cols)))
+        }
+        return(rbind(result), "num_features" = c(1, 1))
       }
 
       param_sets = list(
