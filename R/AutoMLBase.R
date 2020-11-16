@@ -214,7 +214,6 @@ AutoMLBase = R6Class("AutoMLBase",
       } else {
         pipeline = pipeline %>>% learners[[1]]
       }
-
       graph_learner = GraphLearner$new(pipeline, id = "mlr3automl_pipeline")
 
       # fallback learner is featureless learner for classification / regression
@@ -264,7 +263,11 @@ AutoMLBase = R6Class("AutoMLBase",
         return(NULL)
       }
 
-      stability_preprocessing = po("nop") %>>% pipeline_robustify(self$task, impute_missings = TRUE, factors_to_numeric = TRUE)
+      # po("nop") is needed so we have a predecessor for the imputation nodes
+      stability_preprocessing = po("nop") %>>% pipeline_robustify(self$task, impute_missings = TRUE, factors_to_numeric = FALSE)
+      if (any(c("factor", "ordered", "character") %in% self$task$col_info$type)) {
+        stability_preprocessing = stability_preprocessing %>>% po("encodeimpact")
+      }
       stability_preprocessing$update_ids(prefix = "stability.")
 
       # renaming is needed, otherwise we have two PipeOps called
@@ -330,26 +333,28 @@ AutoMLBase = R6Class("AutoMLBase",
       }
 
       param_sets = list(
-        ParamSet$new(list(ParamFct$new("encoding.branch.selection", "stability.encode"))),
-        ParamSet$new(list(ParamFct$new("encoding.branch.selection", "stability.encodeimpact"))))
+        one_hot_encoding = ParamSet$new(list(ParamFct$new("encoding.branch.selection", "stability.encode"))),
+        impact_encoding = ParamSet$new(list(ParamFct$new("encoding.branch.selection", "stability.encodeimpact"))))
 
-      for (config_number in seq_along(param_sets)) {
+      for (index in seq_along(param_sets)) {
         model = AutoTuner$new(
           GraphLearner$new(base_pipeline, id = "feature_preprocessing"),
           resampling = rsmp("holdout"),
           measure = self$measure,
-          search_space = param_sets[[config_number]],
+          search_space = param_sets[[index]],
           terminator = trm("evals", n_evals = 1),
           tuner = tnr("random_search")
         )
+        model$encapsulate = c(train = "callr", predict = "callr")
         model$train(self$task)
-        output_task = get(last_pipeop, model$learner$model)$train_task
-        numeric_cols = nrow(output_task$feature_types[output_task$feature_types$type %in% c("numeric", "integer"), ])
-        all_cols = output_task$ncol - 1
-        result = rbind(result, c(numeric_cols, all_cols))
+        if (!is.null(model$state)) {
+          output_task = get(last_pipeop, model$learner$model)$train_task
+          numeric_cols = nrow(output_task$feature_types[output_task$feature_types$type %in% c("numeric", "integer"), ])
+          all_cols = output_task$ncol - 1
+          result = rbind(result, c(numeric_cols, all_cols))
+          rownames(result)[[index]] = names(param_sets)[[index]]
+        }
       }
-
-      rownames(result) = c("one_hot_encoding", "impact_encoding")
       return(result)
     },
     .extend_preprocessing = function(current_pipeline) {
@@ -367,9 +372,9 @@ AutoMLBase = R6Class("AutoMLBase",
                             branching_prefix = "factor.",
                             columns = c("factor", "ordered", "character"))
 
-      if ("stability.encode" %in% current_pipeline$ids())
+      if ("stability.encodeimpact" %in% current_pipeline$ids())
       replace_existing_node(current_pipeline,
-                            existing_pipeop = "stability.encode",
+                            existing_pipeop = "stability.encodeimpact",
                             pipeop_choices =  c("stability.encode", "stability.encodeimpact"),
                             branching_prefix = "encoding.",
                             columns = c("integer", "numeric", "factor", "ordered", "character"))
