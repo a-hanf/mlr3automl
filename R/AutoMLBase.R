@@ -352,7 +352,7 @@ AutoMLBase = R6Class("AutoMLBase",
         )
         model$encapsulate = c(train = "callr", predict = "callr")
         model$train(self$task)
-        if (!is.null(model$state)) {
+        if (length(model$errors) == 0) {
           output_task = get(last_pipeop, model$learner$model)$train_task
           numeric_cols = nrow(output_task$feature_types[output_task$feature_types$type %in% c("numeric", "integer"), ])
           all_cols = output_task$ncol - 1
@@ -360,6 +360,7 @@ AutoMLBase = R6Class("AutoMLBase",
           rownames(result)[[index]] = names(param_sets)[[index]]
         }
       }
+      if (nrow(results) == 0) return(NULL)
       return(result)
     },
     .extend_preprocessing = function(current_pipeline) {
