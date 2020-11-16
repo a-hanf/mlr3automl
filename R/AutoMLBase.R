@@ -232,12 +232,14 @@ AutoMLBase = R6Class("AutoMLBase",
                                  feature_types = unique(self$task$feature_types$type))
 
       tuner = self$tuner
-      initial_design = get_portfolio_design(self$task$task_type, param_set)
-      tuner = TunerChain$new(list(
-        tnr("design_points", design = initial_design),
-        tnr("hyperband", eta = 3L),
-        tnr("hyperband", eta = 5L)
-      ))
+      initial_design = get_portfolio_design(self$task$task_type, param_set, self$learner_list)
+      if (nrow(initial_design) > 0) {
+        tuner_list = list(tnr("design_points", design = initial_design), self$tuner)
+      } else {
+        tuner_list = list(self$tuner)
+      }
+
+      tuner = TunerChain$new(tuner_list)
 
       if (is.finite(self$runtime)) {
         tuner = TunerWrapperHardTimeout$new(
