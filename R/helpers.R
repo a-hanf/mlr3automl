@@ -125,7 +125,12 @@ replace_existing_node = function(current_pipeline, existing_pipeop, pipeop_choic
                   id = paste0(branching_prefix, "unbranch"))
 
   # connect new subgraph to predecessor and successor
-  current_pipeline$add_edge(paste0(branching_prefix, "unbranch"), neighbor_nodes['successor'])
-  current_pipeline$add_edge(neighbor_nodes['predecessor'], paste0(branching_prefix, "branch"))
+  if (!is.na(neighbor_nodes["successor"])) {
+    current_pipeline$add_edge(paste0(branching_prefix, "unbranch"), neighbor_nodes["successor"])
+  }
+
+  if (!is.na(neighbor_nodes["predecessor"])) {
+    current_pipeline$add_edge(neighbor_nodes["predecessor"], paste0(branching_prefix, "branch"))
+  }
 }
 
