@@ -361,7 +361,7 @@ AutoMLBase = R6Class("AutoMLBase",
           row_names = c(row_names, names(param_sets)[[index]])
         }
       }
-      if (nrow(results) == 0) return(NULL)
+      if (nrow(result) == 0) return(NULL)
       rownames(result) = row_names
       return(result)
     },
