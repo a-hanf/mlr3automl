@@ -341,6 +341,7 @@ AutoMLBase = R6Class("AutoMLBase",
         one_hot_encoding = ParamSet$new(list(ParamFct$new("encoding.branch.selection", "stability.encode"))),
         impact_encoding = ParamSet$new(list(ParamFct$new("encoding.branch.selection", "stability.encodeimpact"))))
 
+      row_names = character()
       for (index in seq_along(param_sets)) {
         model = AutoTuner$new(
           GraphLearner$new(base_pipeline, id = "feature_preprocessing"),
@@ -357,10 +358,11 @@ AutoMLBase = R6Class("AutoMLBase",
           numeric_cols = nrow(output_task$feature_types[output_task$feature_types$type %in% c("numeric", "integer"), ])
           all_cols = output_task$ncol - 1
           result = rbind(result, c(numeric_cols, all_cols))
-          rownames(result)[[index]] = names(param_sets)[[index]]
+          row_names = c(row_names, names(param_sets)[[index]])
         }
       }
       if (nrow(results) == 0) return(NULL)
+      rownames(result) = row_names
       return(result)
     },
     .extend_preprocessing = function(current_pipeline) {
