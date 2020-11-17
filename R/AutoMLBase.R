@@ -350,6 +350,8 @@ AutoMLBase = R6Class("AutoMLBase",
           all_cols = output_task$ncol - 1
           result = rbind(result, c(numeric_cols, all_cols))
           row_names = c(row_names, names(preprocessing_params)[[index]])
+        } else {
+          print(model$errors)
         }
       }
       rownames(result) = row_names
