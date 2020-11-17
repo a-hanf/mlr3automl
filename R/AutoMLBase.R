@@ -352,6 +352,8 @@ AutoMLBase = R6Class("AutoMLBase",
           row_names = c(row_names, names(preprocessing_params)[[index]])
         } else {
           print(model$errors)
+          print(model$learner$graph$ids())
+          print(model$instance_args$search_space)
         }
       }
       rownames(result) = row_names
