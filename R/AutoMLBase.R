@@ -216,14 +216,14 @@ AutoMLBase = R6Class("AutoMLBase",
       }
       graph_learner = GraphLearner$new(pipeline, id = "mlr3automl_pipeline")
 
-      # fallback learner is featureless learner for classification / regression
-      graph_learner$fallback = lrn(paste(self$task$task_type, '.featureless',
-                                         sep = ""))
-      # use callr encapsulation so we are able to kill model training, if it
-      # takes too long
-      graph_learner$encapsulate = c(train = "callr", predict = "callr")
-      graph_learner$timeout = c(train = self$learner_timeout,
-                                predict = self$learner_timeout)
+      # # fallback learner is featureless learner for classification / regression
+      # graph_learner$fallback = lrn(paste(self$task$task_type, '.featureless',
+      #                                    sep = ""))
+      # # use callr encapsulation so we are able to kill model training, if it
+      # # takes too long
+      # graph_learner$encapsulate = c(train = "callr", predict = "callr")
+      # graph_learner$timeout = c(train = self$learner_timeout,
+      #                           predict = self$learner_timeout)
 
       param_set = default_params(learner_list = self$learner_list,
                                  feature_counts = feature_counts,

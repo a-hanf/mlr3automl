@@ -147,9 +147,9 @@ TunerWrapperHardTimeout = R6Class("TunerWrapperTimeout", inherit = mlr3tuning::T
 
         learner_orig = inst$objective$learner
 
-        if (is.null(learner_orig$fallback)) {
-          mlr3misc::stopf("Learner %s must have a fallback learner.", learner_orig$id)
-        }
+        # if (is.null(learner_orig$fallback)) {
+        #   mlr3misc::stopf("Learner %s must have a fallback learner.", learner_orig$id)
+        # }
 
         on.exit({inst$objective$learner = learner_orig})
         terminator_orig = inst$terminator
