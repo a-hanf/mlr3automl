@@ -264,7 +264,7 @@ AutoMLBase = R6Class("AutoMLBase",
       }
 
       # po("nop") is needed so we have a predecessor for the imputation nodes
-      stability_preprocessing = po("nop") %>>% pipeline_robustify(self$task, impute_missings = TRUE, factors_to_numeric = FALSE)
+      stability_preprocessing = po("nop", id = "start") %>>% pipeline_robustify(self$task, impute_missings = TRUE, factors_to_numeric = FALSE)
       if (any(c("factor", "ordered", "character") %in% self$task$col_info$type)) {
         stability_preprocessing = stability_preprocessing %>>% po("encodeimpact")
       }
@@ -290,12 +290,9 @@ AutoMLBase = R6Class("AutoMLBase",
       # first, add more imputation / encoding ops to existing pipeline
       private$.extend_preprocessing(stability_preprocessing)
 
-      if (!is.null(ncol_numeric) && ncol_numeric >= 2) {
-        dimensionality_reduction = list(po("pca"), po("nop"))
-        names(dimensionality_reduction) = sapply(dimensionality_reduction, function(x) paste0("dimensionality.", x$id))
-        return(stability_preprocessing %>>% po("scale") %>>% ppl("branch", graphs = dimensionality_reduction)$update_ids(prefix = "dimensionality."))
-      }
-      return(stability_preprocessing)
+      dimensionality_reduction = list(po("pca"), po("nop"))
+      names(dimensionality_reduction) = sapply(dimensionality_reduction, function(x) paste0("dimensionality.", x$id))
+      return(stability_preprocessing %>>% po("scale") %>>% ppl("branch", graphs = dimensionality_reduction)$update_ids(prefix = "dimensionality."))
     },
     .create_robust_learner = function(learner_name) {
       # liblinear only works with columns of type double. Convert ints / bools -> dbl
@@ -324,45 +321,39 @@ AutoMLBase = R6Class("AutoMLBase",
       # get number of variables after preprocessing
       last_pipeop = paste(self$task$task_type, '.featureless', sep = "")
 
-      if (self$preprocessing != "full") {
-        base_learner = GraphLearner$new(base_pipeline)
-        base_learner$encapsulate = c(train = "callr", predict = "callr")
-        base_learner$train(self$task)
-        if (!is.null(base_learner$state)) {
-          output_task = get(last_pipeop, base_pipeline$graph$state)$train_task
-          numeric_cols = nrow(output_task$feature_types[output_task$feature_types$type %in% c("numeric", "integer"), ])
-          all_cols = get(last_pipeop, base_pipeline$state)$train_task$ncol - 1
-          return(rbind(result, "num_features" = c(numeric_cols, all_cols)))
-        }
-        return(rbind(result), "num_features" = c(1, 1))
+      # dummy param is needed here to get an evaluation with the tuner
+      preprocessing_params = list(impact_encoding = ParamSet$new(list(
+        ParamDbl$new("stability.removeconstants.ratio", lower = 1e-4, upper = 1e-4))))
+
+      if (self$preprocessing == "full") {
+        preprocessing_params = append(preprocessing_params, list(
+          no_encoding = ParamSet$new(list(ParamFct$new("encoding.branch.selection", "stability.nop"))),
+          one_hot_encoding = ParamSet$new(list(ParamFct$new("encoding.branch.selection", "stability.encode")))
+          ))
       }
 
-      param_sets = list(
-        one_hot_encoding = ParamSet$new(list(ParamFct$new("encoding.branch.selection", "stability.encode"))),
-        impact_encoding = ParamSet$new(list(ParamFct$new("encoding.branch.selection", "stability.encodeimpact"))))
-
       row_names = character()
-      for (index in seq_along(param_sets)) {
+      for (index in seq_along(preprocessing_params)) {
         model = AutoTuner$new(
           GraphLearner$new(base_pipeline, id = "feature_preprocessing"),
           resampling = rsmp("holdout"),
           measure = self$measure,
-          search_space = param_sets[[index]],
+          search_space = preprocessing_params[[index]],
           terminator = trm("evals", n_evals = 1),
           tuner = tnr("random_search")
         )
-        model$encapsulate = c(train = "callr", predict = "callr")
+        # model$encapsulate = c(train = "callr", predict = "callr")
         model$train(self$task)
         if (length(model$errors) == 0) {
           output_task = get(last_pipeop, model$learner$model)$train_task
           numeric_cols = nrow(output_task$feature_types[output_task$feature_types$type %in% c("numeric", "integer"), ])
           all_cols = output_task$ncol - 1
           result = rbind(result, c(numeric_cols, all_cols))
-          row_names = c(row_names, names(param_sets)[[index]])
+          row_names = c(row_names, names(preprocessing_params)[[index]])
         }
       }
-      if (nrow(result) == 0) return(NULL)
       rownames(result) = row_names
+      print(result)
       return(result)
     },
     .extend_preprocessing = function(current_pipeline) {
@@ -383,7 +374,7 @@ AutoMLBase = R6Class("AutoMLBase",
       if ("stability.encodeimpact" %in% current_pipeline$ids())
       replace_existing_node(current_pipeline,
                             existing_pipeop = "stability.encodeimpact",
-                            pipeop_choices =  c("stability.encode", "stability.encodeimpact"),
+                            pipeop_choices =  c("stability.encode", "stability.encodeimpact", "stability.nop"),
                             branching_prefix = "encoding.",
                             columns = c("integer", "numeric", "factor", "ordered", "character"))
     }

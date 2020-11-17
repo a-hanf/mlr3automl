@@ -92,7 +92,12 @@ add_branching = function(current_pipeline, choices, id, columns) {
   for (pipeop in choices) {
     if (!(pipeop %in% current_pipeline$ids())) {
       pipeop_name = sub(".*\\.", "", pipeop)
-      current_pipeline$add_pipeop(po(pipeop_name, affect_columns = selector_type(columns), id = pipeop))
+      if (pipeop_name != "nop") {
+        current_pipeline$add_pipeop(po(pipeop_name, affect_columns = selector_type(columns), id = pipeop))
+      } else {
+        current_pipeline$add_pipeop(po(pipeop_name, id = pipeop))
+      }
+
     }
     current_pipeline$add_edge(id, pipeop, src_channel = pipeop)
   }

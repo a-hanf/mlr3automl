@@ -1,9 +1,9 @@
 get_portfolio_design = function(task_type, param_set, learner_list) {
   initial_design = data.table::data.table(
-        subsample.frac = c(1, 1, 0.1, 0.33, 1, 1, 1),
+        subsample.frac = c(0.1, 1, 0.1, 0.33, 1, 1, 1),
         numeric.branch.selection = "imputation.imputemean",
         factor.branch.selection = "imputation.imputeoor",
-        encoding.branch.selection = "stability.encodeimpact",
+        encoding.branch.selection = c("stability.encodeimpact", "stability.encodeimpact", NA_character_, NA_character_, "stability.encodeimpact", "stability.encodeimpact", NA_character_),
         dimensionality.branch.selection = "dimensionality.nop",
         branch.selection = paste0(task_type, c(".featureless", ".liblinear", ".ranger", ".ranger", ".xgboost", ".xgboost", ".ranger")),
         dimensionality.pca.rank. = NA_integer_,
@@ -54,6 +54,13 @@ get_portfolio_design = function(task_type, param_set, learner_list) {
         regr.svm.gamma = NA_real_,
         regr.svm.type = NA_character_
   )
+  if ("encoding.branch.selection" %in% param_set$ids()) {
+    return(initial_design[initial_design$branch.selection %in% learner_list &
+                            initial_design$encoding.branch.selection %in% param_set$levels$encoding.branch.selection,
+                          param_set$ids(),
+                          with = FALSE])
+  }
+
   return(initial_design[initial_design$branch.selection %in% learner_list,
                         param_set$ids(),
                         with = FALSE])
