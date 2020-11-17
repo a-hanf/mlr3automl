@@ -342,7 +342,7 @@ AutoMLBase = R6Class("AutoMLBase",
           terminator = trm("evals", n_evals = 1),
           tuner = tnr("random_search")
         )
-        # model$encapsulate = c(train = "callr", predict = "callr")
+        model$encapsulate = c(train = "callr", predict = "callr")
         model$train(self$task)
         if (length(model$errors) == 0) {
           output_task = get(last_pipeop, model$learner$model)$train_task
