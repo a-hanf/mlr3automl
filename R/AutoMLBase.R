@@ -311,52 +311,34 @@ AutoMLBase = R6Class("AutoMLBase",
       return(pipeline %>>% po("learner", lrn(learner_name)))
     },
     .compute_num_effective_vars = function() {
-      base_pipeline =
-        private$.get_preprocessing_pipeline() %>>%
-        lrn(paste(self$task$task_type, '.featureless', sep = ""))
+      # create pipeline with all the PipeOps that change the number of features
+      base_pipeline = pipeline_robustify(self$task, impute_missings = TRUE, factors_to_numeric = FALSE)
+      output_task = base_pipeline$train(self$task)$removeconstants.output
 
+      # number of features per type in task before encoding
+      numeric_cols = nrow(output_task$feature_types[output_task$feature_types$type %in% c("numeric", "integer"), ])
+      logical_cols = nrow(output_task$feature_types[output_task$feature_types$type %in% c("logical"), ])
+      factor_cols = nrow(output_task$feature_types[output_task$feature_types$type %in% c("character", "factor", "ordered"), ])
+
+      # if no encoding is chosen, number of columns stays the same
       result = matrix(nrow = 0, ncol = 2, byrow = TRUE)
       colnames(result) = c("numeric_cols", "all_cols")
+      result = rbind(result, no_encoding = c(numeric_cols, numeric_cols + logical_cols + factor_cols))
 
-      # get number of variables after preprocessing
-      last_pipeop = paste(self$task$task_type, '.featureless', sep = "")
+      # 1-hot encoding creates a new column for every factor level
+      # should be at most 1000 per column due to po("collapsefactors") in the pipeline
+      factor_cols_one_hot = sum(sapply(output_task$levels(cols = output_task$feature_names), function(x) length(x)))
+      result = rbind(result, one_hot_encoding = c(numeric_cols + factor_cols_one_hot, numeric_cols + logical_cols + factor_cols_one_hot))
 
-      # dummy param is needed here to get an evaluation with the tuner
-      preprocessing_params = list(impact_encoding = ParamSet$new(list(
-        ParamDbl$new("stability.removeconstants.ratio", lower = 1e-4, upper = 1e-4))))
-
-      if (self$preprocessing == "full") {
-        preprocessing_params = append(preprocessing_params, list(
-          no_encoding = ParamSet$new(list(ParamFct$new("encoding.branch.selection", "stability.nop"))),
-          one_hot_encoding = ParamSet$new(list(ParamFct$new("encoding.branch.selection", "stability.encode")))
-          ))
+      # factor encoding creates as many columns as there are target levels for every
+      # categorical column for classification
+      if (self$task$task_type == "classif") {
+        factor_cols_impact = length(get(self$task$target_names, self$task$levels(cols = self$task$target_names))) * factor_cols
+      } else {
+        # for regression one column is created for every categorical feature
+        factor_cols_impact = factor_cols
       }
-
-      row_names = character()
-      for (index in seq_along(preprocessing_params)) {
-        model = AutoTuner$new(
-          GraphLearner$new(base_pipeline, id = "feature_preprocessing"),
-          resampling = rsmp("holdout"),
-          measure = self$measure,
-          search_space = preprocessing_params[[index]],
-          terminator = trm("evals", n_evals = 1),
-          tuner = tnr("random_search")
-        )
-        model$encapsulate = c(train = "callr", predict = "callr")
-        model$train(self$task)
-        if (length(model$errors) == 0) {
-          output_task = get(last_pipeop, model$learner$model)$train_task
-          numeric_cols = nrow(output_task$feature_types[output_task$feature_types$type %in% c("numeric", "integer"), ])
-          all_cols = output_task$ncol - 1
-          result = rbind(result, c(numeric_cols, all_cols))
-          row_names = c(row_names, names(preprocessing_params)[[index]])
-        } else {
-          print(model$errors)
-          print(model$learner$graph$ids())
-          print(model$instance_args$search_space)
-        }
-      }
-      rownames(result) = row_names
+      result = rbind(result, factor_encoding = c(numeric_cols + factor_cols_impact, numeric_cols + logical_cols + factor_cols_impact))
       print(result)
       return(result)
     },
