@@ -58,7 +58,7 @@ default_params = function(learner_list, feature_counts,
   # add dependencies for branch selection
   param_set = add_branch_selection_dependencies(learner_list, task_type, param_set)
 
-  if (preprocessing == "full") {
+  if ("encoding.branch.selection" %in% param_set$ids()) {
     param_set = add_encoding_dependencies(learner_list, task_type, param_set)
   }
 
@@ -86,6 +86,7 @@ default_params = function(learner_list, feature_counts,
 }
 
 preprocessing_trafo = function(x, param_set, task_type, num_effective_vars) {
+  if ("encoding.branch.selection" %in% param_set$ids())
   x$encoding.branch.selection = x$encoding.branch.selection %??% "stability.nop"
 
   transformed_param = c("dimensionality.pca.rank.")
@@ -94,15 +95,9 @@ preprocessing_trafo = function(x, param_set, task_type, num_effective_vars) {
     effective_vars = num_effective_vars["impact_encoding", "numeric_cols"]
   } else if (!is.null(x$encoding.branch.selection) && x$encoding.branch.selection == "stability.encode") {
     effective_vars = num_effective_vars["one_hot_encoding", "numeric_cols"]
-  } else if (!is.null(x$encoding.branch.selection) && x$encoding.branch.selection == "stability.nop") {
-    effective_vars = num_effective_vars["no_encoding", "numeric_cols"]
   } else {
-    warning("Number of features after preprocessing was not computed correctly.
-            Setting it to 2 for rank of PCA")
-    effective_vars = 2
+    effective_vars = num_effective_vars["no_encoding", "numeric_cols"]
   }
-
-
 
   if (transformed_param %in% names(x)) {
     target_rank = min(x[[transformed_param]], effective_vars)
@@ -140,14 +135,14 @@ add_preprocessing_params = function(param_set,
         ParamFct$new("numeric.branch.selection", c("imputation.imputemean", "imputation.imputemedian"), default = "imputation.imputemean"))
     }
 
-    # factor imputation only happens if factors are present in the dataset
+    # factor imputation and encoding only happen if factors are present in the dataset
     if (length(intersect(c("factor", "character", "ordered"), feature_types)) > 0) {
       param_set$add(
         ParamFct$new("factor.branch.selection", c("imputation.imputeoor", "imputation.imputemode", "imputation.imputesample"), default = "imputation.imputeoor"))
+      param_set$add(ParamFct$new("encoding.branch.selection",
+                                 c("stability.encode", "stability.encodeimpact"),
+                                 special_vals = list("stability.nop")))
     }
-
-    param_set$add(ParamFct$new("encoding.branch.selection", c("stability.encode", "stability.encodeimpact"),
-                  special_vals = list("stability.nop")))
 
     # dimensionality reduction only makes sense for high dimensional data
     max_numeric_columns = max(feature_counts[, "numeric_cols"])
@@ -255,16 +250,12 @@ ranger_trafo = function(x, param_set, task_type, num_effective_vars, using_prefi
 
   if (!is.null(x$dimensionality.pca.rank.)) {
     effective_vars = x$dimensionality.pca.rank.
-  } else if ("no_encoding" %in% rownames(num_effective_vars)) {
-    effective_vars = num_effective_vars["no_encoding", "all_cols"]
-  } else if ("impact_encoding" %in% rownames(num_effective_vars)) {
-    effective_vars = num_effective_vars["impact_encoding", "all_cols"]
-  } else if ("one_hot_encoding" %in% rownames(num_effective_vars)) {
-    effective_vars = num_effective_vars["one_hot_encoding", "all_cols"]
+  } else if (!is.null(x$encoding.branch.selection) && x$encoding.branch.selection == "stability.encodeimpact") {
+    effective_vars = num_effective_vars["impact_encoding", "numeric_cols"]
+  } else if (!is.null(x$encoding.branch.selection) && x$encoding.branch.selection == "stability.encode") {
+    effective_vars = num_effective_vars["one_hot_encoding", "numeric_cols"]
   } else {
-    warning("Number of features after preprocessing was not computed correctly.
-            Setting it to 1 for tuning of mtry")
-    effective_vars = 1
+    effective_vars = num_effective_vars["no_encoding", "numeric_cols"]
   }
 
   if (transformed_param %in% names(x)) {

@@ -216,14 +216,14 @@ AutoMLBase = R6Class("AutoMLBase",
       }
       graph_learner = GraphLearner$new(pipeline, id = "mlr3automl_pipeline")
 
-      # # fallback learner is featureless learner for classification / regression
-      # graph_learner$fallback = lrn(paste(self$task$task_type, '.featureless',
-      #                                    sep = ""))
-      # # use callr encapsulation so we are able to kill model training, if it
-      # # takes too long
-      # graph_learner$encapsulate = c(train = "callr", predict = "callr")
-      # graph_learner$timeout = c(train = self$learner_timeout,
-      #                           predict = self$learner_timeout)
+      # fallback learner is featureless learner for classification / regression
+      graph_learner$fallback = lrn(paste(self$task$task_type, '.featureless',
+                                         sep = ""))
+      # use callr encapsulation so we are able to kill model training, if it
+      # takes too long
+      graph_learner$encapsulate = c(train = "callr", predict = "callr")
+      graph_learner$timeout = c(train = self$learner_timeout,
+                                predict = self$learner_timeout)
 
       param_set = default_params(learner_list = self$learner_list,
                                  feature_counts = feature_counts,
@@ -265,7 +265,7 @@ AutoMLBase = R6Class("AutoMLBase",
 
       # po("nop") is needed so we have a predecessor for the imputation nodes
       stability_preprocessing = po("nop", id = "start") %>>% pipeline_robustify(self$task, impute_missings = TRUE, factors_to_numeric = FALSE)
-      if (any(c("factor", "ordered", "character") %in% self$task$col_info$type)) {
+      if (any(c("factor", "ordered", "character") %in% self$task$feature_types$type)) {
         stability_preprocessing = stability_preprocessing %>>% po("encodeimpact")
       }
       stability_preprocessing$update_ids(prefix = "stability.")
