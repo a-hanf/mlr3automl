@@ -338,7 +338,7 @@ AutoMLBase = R6Class("AutoMLBase",
         # for regression one column is created for every categorical feature
         factor_cols_impact = factor_cols
       }
-      result = rbind(result, factor_encoding = c(numeric_cols + factor_cols_impact, numeric_cols + logical_cols + factor_cols_impact))
+      result = rbind(result, impact_encoding = c(numeric_cols + factor_cols_impact, numeric_cols + logical_cols + factor_cols_impact))
       print(result)
       return(result)
     },

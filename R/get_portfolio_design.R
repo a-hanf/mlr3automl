@@ -56,7 +56,7 @@ get_portfolio_design = function(task_type, param_set, learner_list) {
   )
   if ("encoding.branch.selection" %in% param_set$ids()) {
     return(initial_design[initial_design$branch.selection %in% learner_list &
-                            initial_design$encoding.branch.selection %in% param_set$levels$encoding.branch.selection,
+                          initial_design$encoding.branch.selection %in% c(param_set$levels$encoding.branch.selection, NA),
                           param_set$ids(),
                           with = FALSE])
   }

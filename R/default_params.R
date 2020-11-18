@@ -146,18 +146,7 @@ add_preprocessing_params = function(param_set,
         ParamFct$new("factor.branch.selection", c("imputation.imputeoor", "imputation.imputemode", "imputation.imputesample"), default = "imputation.imputeoor"))
     }
 
-    # both encodings are tried out during computation of feature counts.
-    # This may fail in some instances (e. g. very large datasets with many
-    # high cardinality features), so we need to check which encodings are appropriate
-    encoding_choices = character()
-    if ("one_hot_encoding" %in% rownames(feature_counts)) {
-      encoding_choices = c(encoding_choices, "stability.encode")
-    }
-    if ("impact_encoding" %in% rownames(feature_counts)) {
-      encoding_choices = c(encoding_choices, "stability.encodeimpact")
-    }
-
-    param_set$add(ParamFct$new("encoding.branch.selection", encoding_choices,
+    param_set$add(ParamFct$new("encoding.branch.selection", c("stability.encode", "stability.encodeimpact"),
                   special_vals = list("stability.nop")))
 
     # dimensionality reduction only makes sense for high dimensional data
