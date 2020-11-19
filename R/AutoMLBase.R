@@ -148,6 +148,7 @@ AutoMLBase = R6Class("AutoMLBase",
       self$learner$train(self$task, row_ids)
       if (length(self$learner$learner$errors) > 0) {
         warning("An error occured during training. Fallback learner was used!")
+        print(self$learner$learner$errors)
       }
     },
     #' @description
@@ -175,6 +176,7 @@ AutoMLBase = R6Class("AutoMLBase",
       self$learner = resample_result$learners[[1]]
       if (length(self$learner$learner$errors) > 0) {
         warning("An error occured during training. Fallback learner was used!")
+        print(self$learner$learner$errors)
       }
       return(resample_result)
     },
@@ -296,7 +298,7 @@ AutoMLBase = R6Class("AutoMLBase",
     },
     .create_robust_learner = function(learner_name) {
       # liblinear only works with columns of type double. Convert ints / bools -> dbl
-      if (grepl('liblinear', learner_name)) {
+      if (!all(c("integer", "logical") %in% lrn(learner_name)$feature_types)) {
         pipeline = po("colapply", applicator = as.numeric,
              param_vals = list(affect_columns = selector_type(c("logical", "integer"))))
       } else {
