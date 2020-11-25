@@ -59,7 +59,7 @@ create_autotuner = function(
   }
 
   params = default_params(learner = learner$id,
-                          feature_counts = matrix(rep(num_effective_vars, 2), ncol = 2, byrow = TRUE, dimnames = list("num_vars", c("numeric_cols", "all_cols"))),
+                          feature_counts = matrix(num_effective_vars, ncol = 2, nrow = 3, byrow = TRUE, dimnames = list(c("no_encoding", "one_hot_encoding", "impact_encoding"), c("numeric_cols", "all_cols"))),
                           using_hyperband,
                           using_prefixes = using_hyperband,
                           preprocessing = "none")
