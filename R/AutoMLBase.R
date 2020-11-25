@@ -73,6 +73,7 @@ AutoMLBase = R6Class("AutoMLBase",
     tuning_terminator = NULL,
     runtime = NULL,
     tuner = NULL,
+    portfolio = NULL,
     #' @description
     #' Creates a new AutoMLBase object
     #' @param task
@@ -116,7 +117,7 @@ AutoMLBase = R6Class("AutoMLBase",
     #'   to specify a custom preprocessing pipeline.
     initialize = function(task, learner_list = NULL, learner_timeout = NULL,
                           resampling = NULL, measure = NULL, runtime = Inf, terminator = NULL,
-                          preprocessing = NULL) {
+                          preprocessing = NULL, portfolio = TRUE) {
 
       assert_task(task)
       assert_character(learner_list, any.missing = FALSE, min.len = 1)
@@ -134,6 +135,7 @@ AutoMLBase = R6Class("AutoMLBase",
       self$runtime = assert_number(runtime, lower = 0)
       self$learner_timeout = assert_number(learner_timeout, lower = 0, null.ok = TRUE) %??% runtime / 5  # maybe choose a larger divisor here
       self$tuning_terminator = terminator %??% trm("none")
+      self$portfolio = portfolio
 
       self$tuner = tnr("hyperband", eta = 3)
       self$learner = private$.get_default_learner()
@@ -232,12 +234,13 @@ AutoMLBase = R6Class("AutoMLBase",
                                  preprocessing = self$preprocessing,
                                  feature_types = unique(self$task$feature_types$type))
 
-      tuner = self$tuner
-      initial_design = get_portfolio_design(self$task$task_type, param_set, self$learner_list)
-      if (nrow(initial_design) > 0) {
-        tuner_list = list(tnr("design_points", design = initial_design), self$tuner)
-      } else {
-        tuner_list = list(self$tuner)
+      tuner_list = list(self$tuner)
+
+      if (self$portfolio) {
+        initial_design = get_portfolio_design(self$task$task_type, param_set, self$learner_list)
+        if (nrow(initial_design) > 0) {
+          tuner_list = append(list(tnr("design_points", design = initial_design)), tuner_list)
+        }
       }
 
       tuner = TunerChain$new(tuner_list)

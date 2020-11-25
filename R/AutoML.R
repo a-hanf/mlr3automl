@@ -39,8 +39,9 @@
 #' automl_object = AutoML(tsk("iris"))
 #' }
 AutoML = function(task, learner_list = NULL, learner_timeout = NULL,
-                  resampling = NULL, measure = NULL, runtime = Inf, 
-                  terminator = NULL, preprocessing = NULL) {
+                  resampling = NULL, measure = NULL, runtime = Inf,
+                  terminator = NULL, preprocessing = NULL,
+                  portfolio = TRUE) {
   if (task$task_type == "classif") {
     # stratify target variable so that every target label appears
     # in all folds while resampling
@@ -49,10 +50,10 @@ AutoML = function(task, learner_list = NULL, learner_timeout = NULL,
       task$col_roles$stratum = task$target_names
     }
     return(AutoMLClassif$new(task, learner_list, learner_timeout,
-                             resampling, measure, runtime, terminator, preprocessing))
+                             resampling, measure, runtime, terminator, preprocessing, portfolio))
   } else if (task$task_type == "regr") {
     return(AutoMLRegr$new(task, learner_list, learner_timeout,
-                          resampling, measure, runtime, terminator, preprocessing))
+                          resampling, measure, runtime, terminator, preprocessing, portfolio))
   } else {
     stop("mlr3automl only supports classification and regression tasks for now")
   }
