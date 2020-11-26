@@ -257,11 +257,11 @@ ranger_trafo = function(x, param_set, task_type, num_effective_vars, using_prefi
   if (!is.null(x$dimensionality.pca.rank.)) {
     effective_vars = x$dimensionality.pca.rank.
   } else if (!is.null(x$encoding.branch.selection) && x$encoding.branch.selection == "stability.encodeimpact") {
-    effective_vars = num_effective_vars["impact_encoding", "numeric_cols"]
+    effective_vars = num_effective_vars["impact_encoding", "all_cols"]
   } else if (!is.null(x$encoding.branch.selection) && x$encoding.branch.selection == "stability.encode") {
-    effective_vars = num_effective_vars["one_hot_encoding", "numeric_cols"]
+    effective_vars = num_effective_vars["one_hot_encoding", "all_cols"]
   } else {
-    effective_vars = num_effective_vars["no_encoding", "numeric_cols"]
+    effective_vars = num_effective_vars["no_encoding", "all_cols"]
   }
 
   if (transformed_param %in% names(x)) {
