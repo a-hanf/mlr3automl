@@ -168,7 +168,7 @@ xgboost_trafo = function(x, param_set, task_type, using_prefixes) {
   transformed_params = get_transformed_param_names(
     task_type = task_type,
     learner_name = "xgboost",
-    params_to_transform = c("eta", "alpha", "lambda", "rate_drop", "gamma"),
+    params_to_transform = c("eta", "alpha", "lambda", "rate_drop"),
     using_prefixes = using_prefixes)
 
   for (param in names(x)) {
@@ -221,9 +221,7 @@ add_xgboost_params = function(param_set, task_type, using_prefixes) {
     ParamInt$new(paste0(param_id_prefix, "max_depth"),
                  lower = 3, upper = 20, default = 6, tags = "xgboost"),
     ParamInt$new(paste0(param_id_prefix, "min_child_weight"),
-                 lower = 1, upper = 20, default = 1, tags = "xgboost"),
-    ParamDbl$new(paste0(param_id_prefix, "gamma"),
-                 lower = -4, upper = 2, default = 0, tags = "xgboost") # transformed with 10^x
+                 lower = 1, upper = 20, default = 1, tags = "xgboost")
   )))
 
   # additional dependencies for parameters of dart booster
@@ -235,7 +233,7 @@ add_xgboost_params = function(param_set, task_type, using_prefixes) {
 
   # dependencies for dart, gbtree booster
   dart_gbtree_params = paste0(param_id_prefix,
-                              c("colsample_bylevel", "colsample_bytree", "gamma",
+                              c("colsample_bylevel", "colsample_bytree",
                                 "max_depth", "min_child_weight", "subsample"))
 
   for (param in dart_gbtree_params) {
