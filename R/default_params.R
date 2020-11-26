@@ -124,7 +124,7 @@ add_preprocessing_params = function(param_set,
     )
   }
 
-  if (preprocessing %in% c("stability", "full")) {
+  if (preprocessing %in% c("stability", "full") && length(intersect(c("integer", "numeric"), feature_types)) > 0) {
     param_set$add(
       ParamFct$new("stability.missind.type", "numeric")
     )
