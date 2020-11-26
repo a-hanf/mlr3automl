@@ -124,6 +124,12 @@ add_preprocessing_params = function(param_set,
     )
   }
 
+  if (preprocessing %in% c("stability", "full")) {
+    param_set$add(
+      ParamFct$new("stability.missind.type", "numeric")
+    )
+  }
+
   # add feature preprocessing
   if (preprocessing == "full") {
     # numerical imputation only happens if ints/numerical columns are present in the dataset
