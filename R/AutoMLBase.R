@@ -203,7 +203,7 @@ AutoMLBase = R6Class("AutoMLBase",
         feature_counts = NULL
       }
 
-      preprocessing_pipeops = private$.get_preprocessing_pipeline(min(feature_counts[, "numeric_cols"]))
+      preprocessing_pipeops = private$.get_preprocessing_pipeline()
 
       learners = lapply(self$learner_list, function(x) private$.create_robust_learner(x))
       names(learners) = self$learner_list
@@ -261,7 +261,7 @@ AutoMLBase = R6Class("AutoMLBase",
         tuner = tuner
       ))
     },
-    .get_preprocessing_pipeline = function(ncol_numeric = NULL) {
+    .get_preprocessing_pipeline = function() {
       if (any(grepl("Graph|PipeOp", class(self$preprocessing)))) {
         return(self$preprocessing)
       } else  if (self$preprocessing == "none") {
