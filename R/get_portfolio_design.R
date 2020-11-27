@@ -1,6 +1,7 @@
 get_portfolio_design = function(task_type, param_set, learner_list) {
   initial_design = data.table::data.table(
         subsample.frac = c(0.1, 1, 0.1, 0.33, 1, 1, 1),
+        stability.missind.type = "numeric",
         numeric.branch.selection = "imputation.imputemean",
         factor.branch.selection = "imputation.imputeoor",
         encoding.branch.selection = c("stability.encodeimpact", "stability.encodeimpact", NA_character_, NA_character_, "stability.encodeimpact", "stability.encodeimpact", NA_character_),
