@@ -1,49 +1,96 @@
-#' @title AutoML
-#' @format [R6Class] AutoML
-#' @usage NULL
-#' @format [`R6Class`].
+#' @title AutoMLBase
+#'
 #' @description
-#' base class for AutoML in mlr3automl. Has subclasses for Classification and Regression.
-#' @section Construction:
-#' ```
-#' AutoMLBase$new(task)
-#' ```
+#' Base class for AutoML in mlr3automl. Has subclasses for Classification and Regression.
+#'
 #' @section Internals:
-#' The AutoML class uses `mlr3pipelines` to create a machine learning pipeline.
-#' This pipeline contains multiple models (decision tree, random forest, XGBoost),
-#' which are wrapped in a GraphLearner. This GraphLearner is wrapped in an
-#' AutoTuner for Hyperparameter Optimization and during training or resampling.
-#' @section Fields:
-#' * `task` :: `Task` object from `mlr3` \cr
-#'   Contains the data and some meta-features (like the target variable)
-#' * `learner_list` :: `List` of names for `mlr3 Learners` \cr
-#'   Can be used to customize the learners to be tuned over. If no parameter space
-#'   is defined for the selected learner, it will be run with default parameters.
-#'   Might break mlr3automl if the learner is incompatible with the provided task
-#' * `learner_timeout` :: `Integer` \cr
-#'   Budget (in seconds) for a single learner during training of the pipeline
-#' * `preprocessing` :: `Character` \cr
-#'   Type of preprocessing to be used. Possible values are "none", "stability"
-#'   and "full". Alternatively, a `mlr3pipelines::Graph` object can be used
-#'   to specify a custom preprocessing pipeline.
-#' * `resampling` :: `Resampling` object from `mlr3tuning` \cr
-#'   Contains the resampling method to be used for hyper-parameter optimization
-#' * `measure` :: `Measure` object from `mlr_measures` \cr
-#'   Contains the performance measure, for which we optimize during training
-#' * `tuning_terminator` :: `Terminator` object from `bbotk` \cr
-#'   Contains the termination criterion for model tuning
-#' * `tuner` :: `Tuner` object from `mlr3tuning` \cr
-#'   Type of tuning. We use Hyperband.
-#' @section Methods:
-#' * `train()` \cr
-#'   Trains the AutoML system.
-#' * `predict(data = NULL, row_ids = NULL)` \cr
-#'   `data.frame | data.table | Task -> PredictionClassif or PredictionRegr`
-#'   Returns a Prediction object for the given data based on the trained model.
-#'   If data is NULL, defaults to the task used for training
-#'   `resample()`
-#'   `double(1) -> ResampleResult`
-#'   Performs nested resampling with a train/test split as the outer resampling
+#' The AutoMLBase class uses [mlr3pipelines] to create a machine learning pipeline. \cr
+#' This pipeline contains multiple models (Logistic Regression, Random Forest, Gradient Boosting),
+#' which are wrapped in a [GraphLearner][mlr3pipelines::GraphLearner]. \cr
+#' This [GraphLearner][mlr3pipelines::GraphLearner] is wrapped in an [AutoTuner][mlr3tuning::AutoTuner] for Hyperparameter Optimization and proper resampling. \cr
+#' Tuning is performed using [Hyperband][mlr3hyperband].
+#'
+#' @section Construction:
+#' Objects should be created using the [AutoML][mlr3automl::AutoML] interface function.
+#' ```
+#' model = AutoML(task, learner_list, learner_timeout, resampling, measure, runtime,
+#'                terminator, preprocessing, portfolio)
+#' ```
+#'
+#' @param task ([`Task`][mlr3::Task]) \cr
+#' Contains the task to be solved. Currently [`TaskClassif`][mlr3::TaskClassif] and [`TaskRegr`][mlr3::TaskRegr] are supported.
+#' @param learner_list (`list()` | `character()`) \cr
+#' `List` of names from [mlr_learners][mlr3::mlr_learners]. Can be used to customize the learners to be tuned over. \cr
+#' Default learners for classification: `c("classif.ranger", "classif.xgboost", "classif.liblinear")` \cr
+#' Default learners for regression: `c("regr.ranger", "regr.xgboost", "regr.svm", "regr.liblinear", "regr.cv_glmnet")` \cr
+#' Might break mlr3automl if a user-provided learner is incompatible with the provided task.
+#' @param learner_timeout (`integer(1)`) \cr
+#' Budget (in seconds) for a single parameter evaluation during model training. \cr
+#' If this budget is exceeded, the evaluation is stopped and performance measured with the fallback
+#' [LearnerClassifFeatureless][mlr3::LearnerClassifFeatureless] or [LearnerRegrFeatureless][mlr3::LearnerRegrFeatureless]. \cr
+#' When this is `NULL` (default), the learner timeout defaults to `runtime / 5`.
+#' @param resampling ([Resampling][mlr3::Resampling]) \cr
+#' Contains the resampling method to be used for hyper-parameter optimization.
+#' Defaults to [ResamplingHoldout][mlr3::ResamplingHoldout].
+#' @param measure ([Measure][mlr3::Measure]) \cr
+#' Contains the performance measure, for which we optimize during training. \cr
+#' Defaults to [Accuracy][mlr3measures::acc] for classification and [RMSE][mlr3measures::acc] for regression.
+#' @param runtime (`integer(1)`) \cr
+#' Number of seconds for which to run the optimization. Does *not* include training time of the final model. \cr
+#' Defaults to `Inf`, letting [Hyperband][mlr3hyperband] terminate the tuning.
+#' @param terminator ([Terminator][bbotk::Terminator]) \cr
+#' Contains an optional additional termination criterion for model tuning. \cr
+#' Note that the [Hyperband][mlr3hyperband] tuner might stop training before the budget is exhausted.
+#' [TerminatorRunTime][bbotk::TerminatorRunTime] should not be used, use the separate `runtime` parameter instead. \cr
+#' Defaults to [TerminatorNone][bbotk::TerminatorNone], letting [Hyperband][mlr3hyperband] terminate the tuning.
+#' @param preprocessing (`character(1)` | [Graph][mlr3pipelines::Graph]) \cr
+#' Type of preprocessing to be used. Possible values are :
+#' - "none": No preprocessing at all
+#' - "stability": [`pipeline_robustify`][mlr3pipelines::pipeline_robustify] is used to guarantee stability of the learners in the pipeline
+#' - "full": Adds additional preprocessing operators for [Imputation][mlr3pipelines::PipeOpImpute], [Impact Encoding][mlr3pipelines::PipeOpEncodeImpact] and [PCA][mlr3pipelines::PipeOpPCA]. \cr
+#' The choice of preprocessing operators is optimised during tuning.
+#'
+#' Alternatively, a [Graph][mlr3pipelines::Graph] object can be used to specify a custom preprocessing pipeline.
+#' @param portfolio (`logical(1)`) \cr
+#' `mlr3automl` tries out a fixed portfolio of known good learners prior to tuning. \cr
+#' The `portfolio` parameter disables trying these portfolio learners.
+#'
+#' @field task ([`Task`][mlr3::Task]) \cr
+#' Contains the task to be solved.
+#' @field learner_list (`list()` | `character()`) \cr
+#' `List` of names from [mlr_learners][mlr3::mlr_learners]. Can be used to customize the learners to be tuned over. \cr
+#' @field learner_timeout (`integer(1)`) \cr
+#' Budget (in seconds) for a single parameter evaluation during model training. \cr
+#' If this budget is exceeded, the evaluation is stopped and performance measured with the fallback
+#' [LearnerClassifFeatureless][mlr3::LearnerClassifFeatureless] or [LearnerRegrFeatureless][mlr3::LearnerRegrFeatureless]. \cr
+#' When this is `NULL` (default), the learner timeout defaults to `runtime / 5`.
+#' @field resampling ([Resampling][mlr3::Resampling]) \cr
+#' Contains the resampling method to be used for hyper-parameter optimization.
+#' @field measure ([Measure][mlr3::Measure]) \cr
+#' Contains the performance measure, for which we optimize during training. \cr
+#' @field learner ([AutoTuner][mlr3tuning::AutoTuner]) \cr
+#' The ML pipeline at the core of mlr3automl is an [AutoTuner][mlr3tuning::AutoTuner] containing a [GraphLearner][mlr3pipelines::GraphLearner].
+#' @field runtime (`integer(1)`) \cr
+#' Number of seconds for which to run the optimization. Does *not* include training time of the final model. \cr
+#' Defaults to `Inf`, letting [Hyperband][mlr3hyperband] terminate the tuning.
+#' @field tuning_terminator ([Terminator][bbotk::Terminator]) \cr
+#' Contains an optional additional termination criterion for model tuning. \cr
+#' Note that the [Hyperband][mlr3hyperband] tuner might stop training before the budget is exhausted.
+#' [TerminatorRunTime][bbotk::TerminatorRunTime] should not be used, use the separate `runtime` parameter instead. \cr
+#' Defaults to [TerminatorNone][bbotk::TerminatorNone], letting [Hyperband][mlr3hyperband] terminate the tuning.
+#' @field tuner ([TunerHyperband][mlr3hyperband::TunerHyperband]) \cr
+#' Tuning is performed using [TunerHyperband][mlr3hyperband::TunerHyperband] with subsampling fractions between \[0.1, 1\] and \eqn{\eta = 3}
+#' @field preprocessing (`character(1)` | [Graph][mlr3pipelines::Graph]) \cr
+#' Type of preprocessing to be used. Possible values are :
+#' - "none": No preprocessing at all
+#' - "stability": [`pipeline_robustify`][mlr3pipelines::pipeline_robustify] is used to guarantee stability of the learners in the pipeline
+#' - "full": Adds additional preprocessing operators for [Imputation][mlr3pipelines::PipeOpImpute], [Impact Encoding][mlr3pipelines::PipeOpEncodeImpact] and [PCA][mlr3pipelines::PipeOpPCA]. \cr
+#' The choice of preprocessing operators is optimised during tuning.
+#'
+#' Alternatively, a [Graph][mlr3pipelines::Graph] object can be used to specify a custom preprocessing pipeline.
+#' @field portfolio (`logical(1)`) \cr
+#' Whether or not to try a fixed portfolio of known good learners prior to tuning. \cr
+#'
 #' @rawNamespace import(mlr3, except = c(lrn, lrns))
 #' @import mlr3learners
 #' @import mlr3extralearners
@@ -58,9 +105,7 @@
 #' @import glmnet
 #' @import xgboost
 #' @importFrom R6 R6Class
-#' @name AutoMLBase
-#' @examples
-#' "add later"
+#' @import data.table
 AutoMLBase = R6Class("AutoMLBase",
   public = list(
     task = NULL,
@@ -75,50 +120,12 @@ AutoMLBase = R6Class("AutoMLBase",
     tuner = NULL,
     portfolio = NULL,
     #' @description
-    #' Creates a new AutoMLBase object
-    #' @param task
-    #' * `task` :: `Task` object from `mlr3` \cr
-    #'   Contains the task to be solved.
-    #' @param learner_list
-    #' * `learner_list` :: `List` of names for `mlr3 Learners` \cr
-    #'   Can be used to customize the learners to be tuned over. If no parameter space
-    #'   is defined for the selected learner, it will be run with default parameters.
-    #'   Default learners for classification: `c("classif.ranger", "classif.xgboost", "classif.liblinear")`,
-    #'   default learners for regression: `c("regr.ranger", "regr.xgboost", "regr.svm", "regr.liblinear", "regr.cv_glmnet")`.
-    #'   Might break mlr3automl if the learner is incompatible with the provided task.
-    #' @param learner_timeout
-    #' * `learner_timeout` :: `Integer` \cr
-    #'   Budget (in seconds) for a single learner during resampling of the pipeline.
-    #'   If this budget is exceeded, the learner is replaced with the fallback
-    #'   learner (`lrn("classif.featureless")` or `lrn("regr.featureless")`).
-    #'   When this is `NULL` (default), the learner timeout is set to `clock_time / 5`.
-    #' @param resampling
-    #' * `resampling` :: `Resampling` object from `mlr3tuning` \cr
-    #'   Contains the resampling method to be used for hyper-parameter optimization.
-    #'   Defaults to `rsmp("holdout")`.
-    #' @param measure
-    #' * `measure` :: `Measure` object from `mlr_measures` \cr
-    #'   Contains the performance measure, for which we optimize during training.
-    #'   Defaults to `msr("classif.acc")` for classification and `msr("regr.rmse")`
-    #'   for regression.
-    #' @param runtime
-    #'  * `runtime` :: `numeric(1)`\cr
-    #'    Number of seconds for which to run the optimization. Does *not* include training time of the final model.
-    #' @param terminator
-    #' * `terminator` :: `Terminator` object from `mlr3tuning` \cr
-    #'   Contains an optional additional termination criterion for model tuning. Note that the Hyperband
-    #'   tuner might stop training before the budget is exhausted.
-    #'   Note also that no `runtime` terminator needs to be given, as the `runtime` is given separately.
-    #'   Defaults to `trm("none")`
-    #' @param preprocessing
-    #' * `preprocessing` :: `Character` \cr
-    #'   Type of preprocessing to be used. Possible values are "none", "stability"
-    #'   and "full". Alternatively, a `mlr3pipelines::Graph` object can be used
-    #'   to specify a custom preprocessing pipeline.
+    #' Creates a new instance of this [R6][R6::R6Class] class.
+    #'
+    #' @return [AutoMLBase][mlr3automl::AutoMLBase]
     initialize = function(task, learner_list = NULL, learner_timeout = NULL,
                           resampling = NULL, measure = NULL, runtime = Inf, terminator = NULL,
                           preprocessing = NULL, portfolio = TRUE) {
-
       assert_task(task)
       assert_character(learner_list, any.missing = FALSE, min.len = 1)
       for (learner in learner_list) {
@@ -135,17 +142,15 @@ AutoMLBase = R6Class("AutoMLBase",
       self$runtime = assert_number(runtime, lower = 0)
       self$learner_timeout = assert_number(learner_timeout, lower = 0, null.ok = TRUE) %??% runtime / 5  # maybe choose a larger divisor here
       self$tuning_terminator = terminator %??% trm("none")
-      self$portfolio = portfolio
+      self$portfolio = assert_logical(portfolio, len = 1)
 
       self$tuner = tnr("hyperband", eta = 3)
       self$learner = private$.get_default_learner()
     },
     #' @description
-    #' Train AutoML learner. Calls the `train` method of the associated `AutoTuner`
-    #' with the training instances in the given task.
-    #' @param row_ids
-    #' IDs of observations to be used for training. If no `row_ids` are provided,
-    #' trains on the entire data set.
+    #' Trains the AutoML system.
+    #' @param row_ids (`integer()`)\cr
+    #' Vector of training indices.
     train = function(row_ids = NULL) {
       self$learner$train(self$task, row_ids)
       if (length(self$learner$learner$errors) > 0) {
@@ -154,13 +159,13 @@ AutoMLBase = R6Class("AutoMLBase",
       }
     },
     #' @description
-    #' Make predictions for new observations
-    #' @param data
-    #' Optional. If provided, predictions are made on this dataset. Needs to have
-    #' the same format as data used for training.
-    #' @param row_ids
-    #' IDs of observations to be used for predictions If no `row_ids` are provided,
-    #' predictions are made for the entire dataset.
+    #' Returns a [Prediction][mlr3::Prediction] object for the given data based on the trained model.
+    #' @param data ([data.frame] | [data.table] | [Task][mlr3::Task]) \cr
+    #' New observations to be predicted. If `NULL`, defaults to the task the model
+    #' was trained on.
+    #' @param row_ids (`integer()`) \cr
+    #' Vector of training indices.
+    #' @return [`PredictionClassif`][mlr3::PredictionClassif] | [`PredictionRegr`][mlr3::PredictionRegr]
     predict = function(data = NULL, row_ids = NULL) {
       if (is.null(data)) {
         return(self$learner$predict(self$task, row_ids))
@@ -169,9 +174,8 @@ AutoMLBase = R6Class("AutoMLBase",
       }
     },
     #' @description
-    #' Convenience function for resampling with an AutoML Object. Performs nested
-    #' resampling with `$resampling` as inner resampling and `rsmp("holdout")`
-    #' as outer resampling.
+    #' Performs nested resampling. [`ResamplingHoldout`][mlr3::ResamplingHoldout] is used for the outer resampling.
+    #' @return [`ResampleResult`][mlr3::ResampleResult]
     resample = function() {
       outer_resampling = rsmp("holdout")
       resample_result = mlr3::resample(self$task, self$learner, outer_resampling)
@@ -183,8 +187,8 @@ AutoMLBase = R6Class("AutoMLBase",
       return(resample_result)
     },
     #' @description
-    #' Convenience function for trained AutoML objects. Extracts the best
-    #' performing hyperparameters.
+    #' Helper to extract the best hyperparameters from a tuned model.
+    #' @return [`data.table`][data.table::data.table]
     tuned_params = function() {
       if (is.null(self$learner$tuning_instance$archive)) {
         warning("Model has not been trained. Run the $train() method first.")

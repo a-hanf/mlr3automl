@@ -1,25 +1,27 @@
 #' @title Default parameter space for mlr3automl
+#'
 #' @description
-#' The parameter ranges are based on
-#  https://docs.google.com/spreadsheets/d/1A8r5RgMxtRrL3nHVtFhO94DMTJ6qwkoOiakm7qj1e4g
-#' @param learner_list
-#' * `learner_list` :: `List` of names for `mlr3 Learners` \cr
-#'   Can be used to customize the learners to be tuned over. If no parameter space
-#'   is defined for the selected learner, it will be run with default parameters.
-#'   Default learners for classification: `c("classif.ranger", "classif.xgboost", "classif.liblinear")`,
-#'   default learners for regression: `c("regr.ranger", "regr.xgboost", "regr.svm", "regr.liblinear", "regr.cv_glmnet")`.
-#'   Might break mlr3automl if the learner is incompatible with the provided task.
-#' @param task_type [`classif` | `regr`]
-#' String denoting the type of task
-#' @param num_effective_vars
-#' Number of features after preprocessing. Used to compute `mtry` for Random Forest.
-#' @param using_hyperband
+#' The parameter ranges are based on \href{https://docs.google.com/spreadsheets/d/1A8r5RgMxtRrL3nHVtFhO94DMTJ6qwkoOiakm7qj1e4g}{this Google doc}.
+#'
+#' @param learner_list (`list()` | `character()`) \cr
+#' `List` of names from [mlr_learners][mlr3::mlr_learners]. Can be used to customize the learners to be tuned over. \cr
+#' Default learners for classification: `c("classif.ranger", "classif.xgboost", "classif.liblinear")` \cr
+#' Default learners for regression: `c("regr.ranger", "regr.xgboost", "regr.svm", "regr.liblinear", "regr.cv_glmnet")` \cr
+#' Might break mlr3automl if a user-provided learner is incompatible with the provided task.
+#' @param feature_counts (`integer()`)
+#' 3x2 integer matrix with rownames c("no_encoding", "one_hot_encoding", "impact_encoding")
+#' and colnames c("numeric_cols", "all_cols"). The number of features is needed for tuning
+#' of `mtry` in Random Forest and setting the max. number of components in PCA.
+#' @param using_hyperband (`logical(1)`)
 #' For Tuning with Hyperband, a subsampling budget parameter is added to the pipeline.
-#' @param using_prefixes
+#' @param using_prefixes (`logical(1)`)
 #' If `TRUE`, parameter IDs are prefixed with the `learner$id`. Used to avoid
 #' name conflicts in branched pipelines.
-#' @return
-#' `paradox::ParamSet` containing the search space for the AutoML system
+#' @param preprocessing (`character(1)` | [Graph][mlr3pipelines::Graph])
+#' Type of preprocessing used.
+#' @param feature_types (`character()`)
+#' Types of features in the dataset. Used to determine appropriate imputation methods.
+#' @return [ParamSet][paradox::ParamSet]
 default_params = function(learner_list, feature_counts,
                           using_hyperband = TRUE, using_prefixes = TRUE,
                           preprocessing = "stability",

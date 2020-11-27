@@ -2,69 +2,78 @@
 % Please edit documentation in R/AutoMLBase.R
 \name{AutoMLBase}
 \alias{AutoMLBase}
-\title{AutoML}
-\format{
-[R6Class] AutoML
-
-[`R6Class`].
-}
+\title{AutoMLBase}
 \description{
-base class for AutoML in mlr3automl. Has subclasses for Classification and Regression.
+Base class for AutoML in mlr3automl. Has subclasses for Classification and Regression.
 }
-\section{Construction}{
-
-```
-AutoMLBase$new(task)
-```
-}
-
 \section{Internals}{
 
-The AutoML class uses `mlr3pipelines` to create a machine learning pipeline.
-This pipeline contains multiple models (decision tree, random forest, XGBoost),
-which are wrapped in a GraphLearner. This GraphLearner is wrapped in an
-AutoTuner for Hyperparameter Optimization and during training or resampling.
+The AutoMLBase class uses \link{mlr3pipelines} to create a machine learning pipeline. \cr
+This pipeline contains multiple models (Logistic Regression, Random Forest, Gradient Boosting),
+which are wrapped in a \link[mlr3pipelines:mlr_learners_graph]{GraphLearner}. \cr
+This \link[mlr3pipelines:mlr_learners_graph]{GraphLearner} is wrapped in an \link[mlr3tuning:AutoTuner]{AutoTuner} for Hyperparameter Optimization and proper resampling. \cr
+Tuning is performed using \link[=mlr3hyperband]{Hyperband}.
 }
 
-\section{Fields}{
+\section{Construction}{
 
-* `task` :: `Task` object from `mlr3` \cr
-  Contains the data and some meta-features (like the target variable)
-* `learner_list` :: `List` of names for `mlr3 Learners` \cr
-  Can be used to customize the learners to be tuned over. If no parameter space
-  is defined for the selected learner, it will be run with default parameters.
-  Might break mlr3automl if the learner is incompatible with the provided task
-* `learner_timeout` :: `Integer` \cr
-  Budget (in seconds) for a single learner during training of the pipeline
-* `preprocessing` :: `Character` \cr
-  Type of preprocessing to be used. Possible values are "none", "stability"
-  and "full". Alternatively, a `mlr3pipelines::Graph` object can be used
-  to specify a custom preprocessing pipeline.
-* `resampling` :: `Resampling` object from `mlr3tuning` \cr
-  Contains the resampling method to be used for hyper-parameter optimization
-* `measure` :: `Measure` object from `mlr_measures` \cr
-  Contains the performance measure, for which we optimize during training
-* `tuning_terminator` :: `Terminator` object from `bbotk` \cr
-  Contains the termination criterion for model tuning
-* `tuner` :: `Tuner` object from `mlr3tuning` \cr
-  Type of tuning. We use Hyperband.
+Objects should be created using the \link[=AutoML]{AutoML} interface function.\preformatted{model = AutoML(task, learner_list, learner_timeout, resampling, measure, runtime,
+               terminator, preprocessing, portfolio)
+}
 }
 
-\section{Methods}{
+\section{Public fields}{
+\if{html}{\out{<div class="r6-fields">}}
+\describe{
+\item{\code{task}}{(\code{\link[mlr3:Task]{Task}}) \cr
+Contains the task to be solved.}
 
-* `train()` \cr
-  Trains the AutoML system.
-* `predict(data = NULL, row_ids = NULL)` \cr
-  `data.frame | data.table | Task -> PredictionClassif or PredictionRegr`
-  Returns a Prediction object for the given data based on the trained model.
-  If data is NULL, defaults to the task used for training
-  `resample()`
-  `double(1) -> ResampleResult`
-  Performs nested resampling with a train/test split as the outer resampling
+\item{\code{learner_list}}{(\code{list()} | \code{character()}) \cr
+\code{List} of names from \link[mlr3:mlr_learners]{mlr_learners}. Can be used to customize the learners to be tuned over. \cr}
+
+\item{\code{learner_timeout}}{(\code{integer(1)}) \cr
+Budget (in seconds) for a single parameter evaluation during model training. \cr
+If this budget is exceeded, the evaluation is stopped and performance measured with the fallback
+\link[mlr3:mlr_learners_classif.featureless]{LearnerClassifFeatureless} or \link[mlr3:mlr_learners_regr.featureless]{LearnerRegrFeatureless}. \cr
+When this is \code{NULL} (default), the learner timeout defaults to \code{runtime / 5}.}
+
+\item{\code{resampling}}{(\link[mlr3:Resampling]{Resampling}) \cr
+Contains the resampling method to be used for hyper-parameter optimization.}
+
+\item{\code{measure}}{(\link[mlr3:Measure]{Measure}) \cr
+Contains the performance measure, for which we optimize during training. \cr}
+
+\item{\code{learner}}{(\link[mlr3tuning:AutoTuner]{AutoTuner}) \cr
+The ML pipeline at the core of mlr3automl is an \link[mlr3tuning:AutoTuner]{AutoTuner} containing a \link[mlr3pipelines:mlr_learners_graph]{GraphLearner}.}
+
+\item{\code{runtime}}{(\code{integer(1)}) \cr
+Number of seconds for which to run the optimization. Does \emph{not} include training time of the final model. \cr
+Defaults to \code{Inf}, letting \link[=mlr3hyperband]{Hyperband} terminate the tuning.}
+
+\item{\code{tuning_terminator}}{(\link[bbotk:Terminator]{Terminator}) \cr
+Contains an optional additional termination criterion for model tuning. \cr
+Note that the \link[=mlr3hyperband]{Hyperband} tuner might stop training before the budget is exhausted.
+\link[bbotk:mlr_terminators_run_time]{TerminatorRunTime} should not be used, use the separate \code{runtime} parameter instead. \cr
+Defaults to \link[bbotk:mlr_terminators_none]{TerminatorNone}, letting \link[=mlr3hyperband]{Hyperband} terminate the tuning.}
+
+\item{\code{tuner}}{(\link[mlr3hyperband:mlr_tuners_hyperband]{TunerHyperband}) \cr
+Tuning is performed using \link[mlr3hyperband:mlr_tuners_hyperband]{TunerHyperband} with subsampling fractions between [0.1, 1] and \eqn{\eta = 3}}
+
+\item{\code{preprocessing}}{(\code{character(1)} | \link[mlr3pipelines:Graph]{Graph}) \cr
+Type of preprocessing to be used. Possible values are :
+\itemize{
+\item "none": No preprocessing at all
+\item "stability": \code{\link[mlr3pipelines:mlr_graphs_robustify]{pipeline_robustify}} is used to guarantee stability of the learners in the pipeline
+\item "full": Adds additional preprocessing operators for \link[mlr3pipelines:PipeOpImpute]{Imputation}, \link[mlr3pipelines:mlr_pipeops_encodeimpact]{Impact Encoding} and \link[mlr3pipelines:mlr_pipeops_pca]{PCA}. \cr
+The choice of preprocessing operators is optimised during tuning.
 }
 
-\examples{
-"add later"
+Alternatively, a \link[mlr3pipelines:Graph]{Graph} object can be used to specify a custom preprocessing pipeline.}
+
+\item{\code{portfolio}}{(\code{logical(1)}) \cr
+Whether or not to try a fixed portfolio of known good learners prior to tuning. \cr}
+}
+\if{html}{\out{</div>}}
 }
 \section{Methods}{
 \subsection{Public methods}{
@@ -81,7 +90,7 @@ AutoTuner for Hyperparameter Optimization and during training or resampling.
 \if{html}{\out{<a id="method-new"></a>}}
 \if{latex}{\out{\hypertarget{method-new}{}}}
 \subsection{Method \code{new()}}{
-Creates a new AutoMLBase object
+Creates a new instance of this \link[R6:R6Class]{R6} class.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{AutoMLBase$new(
   task,
@@ -89,57 +98,75 @@ Creates a new AutoMLBase object
   learner_timeout = NULL,
   resampling = NULL,
   measure = NULL,
+  runtime = Inf,
   terminator = NULL,
-  preprocessing = NULL
+  preprocessing = NULL,
+  portfolio = TRUE
 )}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{task}}{* `task` :: `Task` object from `mlr3` \cr
-Contains the task to be solved.}
+\item{\code{task}}{(\code{\link[mlr3:Task]{Task}}) \cr
+Contains the task to be solved. Currently \code{\link[mlr3:TaskClassif]{TaskClassif}} and \code{\link[mlr3:TaskRegr]{TaskRegr}} are supported.}
 
-\item{\code{learner_list}}{* `learner_list` :: `List` of names for `mlr3 Learners` \cr
-Can be used to customize the learners to be tuned over. If no parameter space
-is defined for the selected learner, it will be run with default parameters.
-Default learners for classification: `c("classif.ranger", "classif.xgboost", "classif.liblinear")`,
-default learners for regression: `c("regr.ranger", "regr.xgboost", "regr.svm", "regr.liblinear", "regr.cv_glmnet")`.
-Might break mlr3automl if the learner is incompatible with the provided task.}
+\item{\code{learner_list}}{(\code{list()} | \code{character()}) \cr
+\code{List} of names from \link[mlr3:mlr_learners]{mlr_learners}. Can be used to customize the learners to be tuned over. \cr
+Default learners for classification: \code{c("classif.ranger", "classif.xgboost", "classif.liblinear")} \cr
+Default learners for regression: \code{c("regr.ranger", "regr.xgboost", "regr.svm", "regr.liblinear", "regr.cv_glmnet")} \cr
+Might break mlr3automl if a user-provided learner is incompatible with the provided task.}
 
-\item{\code{learner_timeout}}{* `learner_timeout` :: `Integer` \cr
-Budget (in seconds) for a single learner during training of the pipeline.
-If this budget is exceeded, the learner is replaced with the fallback
-learner (`lrn("classif.featureless")` or `lrn("regr.featureless")`).}
+\item{\code{learner_timeout}}{(\code{integer(1)}) \cr
+Budget (in seconds) for a single parameter evaluation during model training. \cr
+If this budget is exceeded, the evaluation is stopped and performance measured with the fallback
+\link[mlr3:mlr_learners_classif.featureless]{LearnerClassifFeatureless} or \link[mlr3:mlr_learners_regr.featureless]{LearnerRegrFeatureless}. \cr
+When this is \code{NULL} (default), the learner timeout defaults to \code{runtime / 5}.}
 
-\item{\code{resampling}}{* `resampling` :: `Resampling` object from `mlr3tuning` \cr
+\item{\code{resampling}}{(\link[mlr3:Resampling]{Resampling}) \cr
 Contains the resampling method to be used for hyper-parameter optimization.
-Defaults to `rsmp("holdout")`.}
+Defaults to \link[mlr3:mlr_resamplings_holdout]{ResamplingHoldout}.}
 
-\item{\code{measure}}{* `measure` :: `Measure` object from `mlr_measures` \cr
-Contains the performance measure, for which we optimize during training.
-Defaults to `msr("classif.acc")` for classification and `msr("regr.rmse")`
-for regression.}
+\item{\code{measure}}{(\link[mlr3:Measure]{Measure}) \cr
+Contains the performance measure, for which we optimize during training. \cr
+Defaults to \link[mlr3measures:acc]{Accuracy} for classification and \link[mlr3measures:acc]{RMSE} for regression.}
 
-\item{\code{terminator}}{* `terminator` :: `Terminator` object from `mlr3tuning` \cr
-Contains the termination criterion for model tuning. Note that the Hyperband
-tuner might stop training before the budget is exhausted.
-Defaults to `trm("none")`}
+\item{\code{runtime}}{(\code{integer(1)}) \cr
+Number of seconds for which to run the optimization. Does \emph{not} include training time of the final model. \cr
+Defaults to \code{Inf}, letting \link[=mlr3hyperband]{Hyperband} terminate the tuning.}
 
-\item{\code{preprocessing}}{* `preprocessing` :: `Character` \cr
-Type of preprocessing to be used. Possible values are "none", "stability"
-and "full". Alternatively, a `mlr3pipelines::Graph` object can be used
-to specify a custom preprocessing pipeline.}
+\item{\code{terminator}}{(\link[bbotk:Terminator]{Terminator}) \cr
+Contains an optional additional termination criterion for model tuning. \cr
+Note that the \link[=mlr3hyperband]{Hyperband} tuner might stop training before the budget is exhausted.
+\link[bbotk:mlr_terminators_run_time]{TerminatorRunTime} should not be used, use the separate \code{runtime} parameter instead. \cr
+Defaults to \link[bbotk:mlr_terminators_none]{TerminatorNone}, letting \link[=mlr3hyperband]{Hyperband} terminate the tuning.}
+
+\item{\code{preprocessing}}{(\code{character(1)} | \link[mlr3pipelines:Graph]{Graph}) \cr
+Type of preprocessing to be used. Possible values are :
+\itemize{
+\item "none": No preprocessing at all
+\item "stability": \code{\link[mlr3pipelines:mlr_graphs_robustify]{pipeline_robustify}} is used to guarantee stability of the learners in the pipeline
+\item "full": Adds additional preprocessing operators for \link[mlr3pipelines:PipeOpImpute]{Imputation}, \link[mlr3pipelines:mlr_pipeops_encodeimpact]{Impact Encoding} and \link[mlr3pipelines:mlr_pipeops_pca]{PCA}. \cr
+The choice of preprocessing operators is optimised during tuning.
+}
+
+Alternatively, a \link[mlr3pipelines:Graph]{Graph} object can be used to specify a custom preprocessing pipeline.}
+
+\item{\code{portfolio}}{(\code{logical(1)}) \cr
+\code{mlr3automl} tries out a fixed portfolio of known good learners prior to tuning. \cr
+The \code{portfolio} parameter disables trying these portfolio learners.}
 }
 \if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+\link[=AutoMLBase]{AutoMLBase}
 }
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-train"></a>}}
 \if{latex}{\out{\hypertarget{method-train}{}}}
 \subsection{Method \code{train()}}{
-Train AutoML learner. Calls the `train` method of the associated `AutoTuner`
-with the training instances in the given task.
+Trains the AutoML system.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{AutoMLBase$train(row_ids = NULL)}\if{html}{\out{</div>}}
 }
@@ -147,8 +174,8 @@ with the training instances in the given task.
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{row_ids}}{IDs of observations to be used for training. If no `row_ids` are provided,
-trains on the entire data set.}
+\item{\code{row_ids}}{(\code{integer()})\cr
+Vector of training indices.}
 }
 \if{html}{\out{</div>}}
 }
@@ -157,7 +184,7 @@ trains on the entire data set.}
 \if{html}{\out{<a id="method-predict"></a>}}
 \if{latex}{\out{\hypertarget{method-predict}{}}}
 \subsection{Method \code{predict()}}{
-Make predictions for new observations
+Returns a \link[mlr3:Prediction]{Prediction} object for the given data based on the trained model.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{AutoMLBase$predict(data = NULL, row_ids = NULL)}\if{html}{\out{</div>}}
 }
@@ -165,37 +192,44 @@ Make predictions for new observations
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{data}}{Optional. If provided, predictions are made on this dataset. Needs to have
-the same format as data used for training.}
+\item{\code{data}}{(\link{data.frame} | \link{data.table} | \link[mlr3:Task]{Task}) \cr
+New observations to be predicted. If \code{NULL}, defaults to the task the model
+was trained on.}
 
-\item{\code{row_ids}}{IDs of observations to be used for predictions If no `row_ids` are provided,
-predictions are made for the entire dataset.}
+\item{\code{row_ids}}{(\code{integer()}) \cr
+Vector of training indices.}
 }
 \if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+\code{\link[mlr3:PredictionClassif]{PredictionClassif}} | \code{\link[mlr3:PredictionRegr]{PredictionRegr}}
 }
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-resample"></a>}}
 \if{latex}{\out{\hypertarget{method-resample}{}}}
 \subsection{Method \code{resample()}}{
-Convenience function for resampling with an AutoML Object. Performs nested
-resampling with `$resampling` as inner resampling and `rsmp("holdout")`
-as outer resampling.
+Performs nested resampling. \code{\link[mlr3:mlr_resamplings_holdout]{ResamplingHoldout}} is used for the outer resampling.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{AutoMLBase$resample()}\if{html}{\out{</div>}}
 }
 
+\subsection{Returns}{
+\code{\link[mlr3:ResampleResult]{ResampleResult}}
+}
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-tuned_params"></a>}}
 \if{latex}{\out{\hypertarget{method-tuned_params}{}}}
 \subsection{Method \code{tuned_params()}}{
-Convenience function for trained AutoML objects. Extracts the best
-performing hyperparameters.
+Helper to extract the best hyperparameters from a tuned model.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{AutoMLBase$tuned_params()}\if{html}{\out{</div>}}
 }
 
+\subsection{Returns}{
+\code{\link[data.table:data.table]{data.table}}
+}
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-clone"></a>}}

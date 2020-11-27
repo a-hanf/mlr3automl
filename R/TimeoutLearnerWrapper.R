@@ -234,8 +234,6 @@ OptimizerChain = R6Class("OptimizerChain", inherit = bbotk::Optimizer,
 TunerChain = R6Class("TunerRandomSearch",
   inherit = mlr3tuning::TunerFromOptimizer,
   public = list(
-    #' @description
-    #' Creates a new instance of this [R6][R6::R6Class] class.
     initialize = function(...) {
       super$initialize(
         optimizer = OptimizerChain$new(...)
