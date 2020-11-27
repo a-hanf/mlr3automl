@@ -25,44 +25,44 @@ default_params = function(learner_list, feature_counts,
                           preprocessing = "stability",
                           feature_types = NULL) {
   # model is selected during tuning as a branch of the GraphLearner
-  param_set = ParamSet$new()
+  ps = ParamSet$new()
   task_type = sub("\\..*", "", learner_list[[1]])
   if (!(task_type %in% c("classif", "regr"))) {
     warning("Parameter sets have only been tested for classification and
             regression. Check your results carefully.")
   }
 
-  param_set = add_preprocessing_params(param_set, preprocessing, using_hyperband, feature_counts, feature_types)
+  ps = add_preprocessing_params(ps, preprocessing, using_hyperband, feature_counts, feature_types)
 
   # update parameter set for all known learners
   if (any(grepl("xgboost", learner_list))) {
-    param_set = add_xgboost_params(param_set, task_type, using_prefixes)
+    ps = add_xgboost_params(ps, task_type, using_prefixes)
   }
 
   if (any(grepl("cv_glmnet", learner_list))) {
-    param_set = add_glmnet_params(param_set, task_type, using_prefixes)
+    ps = add_glmnet_params(ps, task_type, using_prefixes)
   }
 
   if (any(grepl("svm", learner_list))) {
-    param_set = add_svm_params(param_set, task_type, using_prefixes)
+    ps = add_svm_params(ps, task_type, using_prefixes)
   }
 
   if (any(grepl("liblinear", learner_list))) {
-    param_set = add_liblinear_params(param_set, task_type, using_prefixes)
+    ps = add_liblinear_params(ps, task_type, using_prefixes)
   }
 
   if (any(grepl("ranger", learner_list))) {
-    param_set = add_ranger_params(param_set, task_type, using_prefixes)
+    ps = add_ranger_params(ps, task_type, using_prefixes)
   }
 
   # add dependencies for branch selection
-  param_set = add_branch_selection_dependencies(learner_list, task_type, param_set)
+  ps = add_branch_selection_dependencies(learner_list, task_type, ps)
 
-  if ("encoding.branch.selection" %in% param_set$ids()) {
-    param_set = add_encoding_dependencies(learner_list, task_type, param_set)
+  if ("encoding.branch.selection" %in% ps$ids()) {
+    ps = add_encoding_dependencies(learner_list, task_type, ps)
   }
 
-  param_set$trafo = function(x, param_set) {
+  ps$trafo = function(x, param_set) {
     if (preprocessing == "full") {
       x = preprocessing_trafo(x, param_set, task_type, feature_counts)
     }
@@ -78,11 +78,14 @@ default_params = function(learner_list, feature_counts,
     if (any(grepl("svm", learner_list))) {
       x = svm_trafo(x, param_set, task_type, using_prefixes)
     }
+
     if (any(grepl("liblinear", learner_list))) {
       x = liblinear_trafo(x, param_set, task_type, using_prefixes)
     }
+    return(x)
   }
-  return(param_set)
+
+  return(ps)
 }
 
 preprocessing_trafo = function(x, param_set, task_type, num_effective_vars) {
