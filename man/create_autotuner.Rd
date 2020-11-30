@@ -4,28 +4,47 @@
 \alias{create_autotuner}
 \title{Create an AutoTuner with a single line of code}
 \usage{
-create_autotuner(learner_list = c("classif.ranger"), task = tsk("iris"))
+create_autotuner(
+  learner = lrn("classif.xgboost"),
+  resampling = rsmp("cv", folds = 10),
+  measure = NULL,
+  terminator = trm("run_time", secs = 60),
+  tuner = tnr("random_search"),
+  num_effective_vars = NULL
+)
 }
 \arguments{
-\item{learner_list}{[`List of Learners`][mlr3::Learner] \cr
-A list of learners}
+\item{learner}{(\code{character(1)} | \link[mlr3:Learner]{Learner}) \cr
+Learner inside the \link[mlr3tuning:AutoTuner]{AutoTuner}. Parameter sets are predefined for
+\code{ranger}, \code{xgboost}, \code{liblinear}, \code{svm} and \code{cv_glmnet} learners for both
+prediction and regression. Other learners will obtain empty parameter sets.}
 
-\item{task}{[`Task`] \cr
-A [`Task`][mlr3::Task] to create the AutoTuner for. Influences the
-preprocessing operations in the learner. Will be removed when preprocessing
-operations are refactored.}
+\item{resampling}{(\link[mlr3:Resampling]{Resampling}) \cr}
+
+\item{measure}{(\link[mlr3:Measure]{Measure}) \cr}
+
+\item{terminator}{(\link[bbotk:Terminator]{Terminator})\cr}
+
+\item{tuner}{(\link[mlr3tuning:Tuner]{Tuner} | \link[mlr3hyperband:mlr_tuners_hyperband]{TunerHyperband})\cr
+Tuner. Hyperband is supported by creating a \code{\link[mlr3pipelines:mlr_learners_graph]{GraphLearner}}
+with \code{\link[mlr3pipelines:mlr_pipeops_subsample]{PipeOpSubsample}}.}
+
+\item{num_effective_vars}{\cr
+Integer giving the number of features in the dataset. Only required for
+parameter transformation of \code{mtry} in Random Forest (we are tuning over
+\code{num_effective_vars^0.1} to \code{num_effective_vars^0.9})}
 }
 \value{
-[`AutoTuner`]
+\link[mlr3tuning:AutoTuner]{AutoTuner}
 }
 \description{
-Small utility function, which creates an AutoTuner for given learners. The
-learner in this AutoTuner is a (somewhat complex) GraphLearner used in
-`mlr3automl`. Will be simplified when preprocessing operations are refactored.
+Small utility function, which creates an \link[mlr3tuning:AutoTuner]{AutoTuner} for a given \link[mlr3:Learner]{learner}. \cr
+Uses the same interface as the \link[mlr3tuning:AutoTuner]{AutoTuner}, but provides defaults for all arguments. \cr
+Parameter spaces are identical to the ones used in \link{mlr3automl}.
 }
 \examples{
 \donttest{
 library(mlr3automl)
-my_autotuner = create_autotuner(c("classif.svm"))
+my_autotuner = create_autotuner(lrn("classif.svm"))
 }
 }

@@ -10,48 +10,74 @@ AutoML(
   learner_timeout = NULL,
   resampling = NULL,
   measure = NULL,
-  terminator = NULL
+  runtime = Inf,
+  terminator = NULL,
+  preprocessing = NULL,
+  portfolio = TRUE
 )
 }
 \arguments{
-\item{task}{* `task` :: `Task` object from `mlr3` \cr
-Contains the task to be solved.}
+\item{task}{(\code{\link[mlr3:Task]{Task}}) \cr
+Contains the task to be solved. Currently \code{\link[mlr3:TaskClassif]{TaskClassif}} and \code{\link[mlr3:TaskRegr]{TaskRegr}} are supported.}
 
-\item{learner_list}{* `learner_list` :: `List` of names for `mlr3 Learners` \cr
-Can be used to customize the learners to be tuned over. If no parameter space
-is defined for the selected learner, it will be run with default parameters.
-Default learners for classification: `c("classif.ranger", "classif.xgboost", "classif.liblinear")`,
-default learners for regression: `c("regr.ranger", "regr.xgboost", "regr.svm", "regr.liblinear", "regr.cv_glmnet")`.
-Might break mlr3automl if the learner is incompatible with the provided task.}
+\item{learner_list}{(\code{list()} | \code{character()}) \cr
+\code{List} of names from \link[mlr3:mlr_learners]{mlr_learners}. Can be used to customize the learners to be tuned over. \cr
+Default learners for classification: \code{c("classif.ranger", "classif.xgboost", "classif.liblinear")} \cr
+Default learners for regression: \code{c("regr.ranger", "regr.xgboost", "regr.svm", "regr.liblinear", "regr.cv_glmnet")} \cr
+Might break mlr3automl if a user-provided learner is incompatible with the provided task.}
 
-\item{learner_timeout}{* `learner_timeout` :: `Integer` \cr
-Budget (in seconds) for a single learner during training of the pipeline.
-If this budget is exceeded, the learner is replaced with the fallback
-learner (`lrn("classif.featureless")` or `lrn("regr.featureless")`).}
+\item{learner_timeout}{(\code{integer(1)}) \cr
+Budget (in seconds) for a single parameter evaluation during model training. \cr
+If this budget is exceeded, the evaluation is stopped and performance measured with the fallback
+\link[mlr3:mlr_learners_classif.featureless]{LearnerClassifFeatureless} or \link[mlr3:mlr_learners_regr.featureless]{LearnerRegrFeatureless}. \cr
+When this is \code{NULL} (default), the learner timeout defaults to \code{runtime / 5}.}
 
-\item{resampling}{* `resampling` :: `Resampling` object from `mlr3tuning` \cr
+\item{resampling}{(\link[mlr3:Resampling]{Resampling}) \cr
 Contains the resampling method to be used for hyper-parameter optimization.
-Defaults to `rsmp("holdout")`.}
+Defaults to \link[mlr3:mlr_resamplings_holdout]{ResamplingHoldout}.}
 
-\item{measure}{* `measure` :: `Measure` object from `mlr_measures` \cr
-Contains the performance measure, for which we optimize during training.
-Defaults to `msr("classif.acc")` for classification and `msr("regr.rmse")`
-for regression.}
+\item{measure}{(\link[mlr3:Measure]{Measure}) \cr
+Contains the performance measure, for which we optimize during training. \cr
+Defaults to \link[mlr3measures:acc]{Accuracy} for classification and \link[mlr3measures:acc]{RMSE} for regression.}
 
-\item{terminator}{* `terminator` :: `Terminator` object from `mlr3tuning` \cr
-Contains the termination criterion for model tuning. Note that the Hyperband
-tuner might stop training before the budget is exhausted.
-Defaults to `trm("none")`}
+\item{runtime}{(\code{integer(1)}) \cr
+Number of seconds for which to run the optimization. Does \emph{not} include training time of the final model. \cr
+Defaults to \code{Inf}, letting \link[=mlr3hyperband]{Hyperband} terminate the tuning.}
+
+\item{terminator}{(\link[bbotk:Terminator]{Terminator}) \cr
+Contains an optional additional termination criterion for model tuning. \cr
+Note that the \link[=mlr3hyperband]{Hyperband} tuner might stop training before the budget is exhausted.
+\link[bbotk:mlr_terminators_run_time]{TerminatorRunTime} should not be used, use the separate \code{runtime} parameter instead. \cr
+Defaults to \link[bbotk:mlr_terminators_none]{TerminatorNone}, letting \link[=mlr3hyperband]{Hyperband} terminate the tuning.}
+
+\item{preprocessing}{(\code{character(1)} | \link[mlr3pipelines:Graph]{Graph}) \cr
+Type of preprocessing to be used. Possible values are :
+\itemize{
+\item "none": No preprocessing at all
+\item "stability": \code{\link[mlr3pipelines:mlr_graphs_robustify]{pipeline_robustify}} is used to guarantee stability of the learners in the pipeline
+\item "full": Adds additional preprocessing operators for \link[mlr3pipelines:PipeOpImpute]{Imputation}, \link[mlr3pipelines:mlr_pipeops_encodeimpact]{Impact Encoding} and \link[mlr3pipelines:mlr_pipeops_pca]{PCA}. \cr
+The choice of preprocessing operators is optimised during tuning.
+}
+
+Alternatively, a \link[mlr3pipelines:Graph]{Graph} object can be used to specify a custom preprocessing pipeline.}
+
+\item{portfolio}{(\code{logical(1)}) \cr
+\code{mlr3automl} tries out a fixed portfolio of known good learners prior to tuning. \cr
+The \code{portfolio} parameter disables trying these portfolio learners.}
 }
 \value{
-['AutoMLClassif' | 'AutoMLRegr']
+(\link[=AutoMLClassif]{AutoMLClassif} | \link[=AutoMLRegr]{AutoMLRegr}) \cr
 Returned class depends on the type of task.
 }
 \description{
-Interface for classes AutoMLClassif and AutoMLRegr.
+Creates an instance of \link[=AutoMLClassif]{AutoMLClassif} or \link[=AutoMLRegr]{AutoMLRegr}.
 }
 \examples{
 \dontrun{
-automl_object = AutoML(tsk("iris"))
+library(mlr3)
+library(mlr3automl)
+
+model = AutoML(tsk("iris"))
+model$train()
 }
 }

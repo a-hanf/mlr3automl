@@ -1,2 +1,6 @@
 ^mlr3automl\.Rproj$
 ^\.Rproj\.user$
+^.editorconfig$
+^.gitignore$
+^.git$
+^attic$
