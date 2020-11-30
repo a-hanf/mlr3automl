@@ -1,63 +1,72 @@
 #' @title Default parameter space for mlr3automl
+#'
 #' @description
-#' The parameter ranges are based on
-#  https://docs.google.com/spreadsheets/d/1A8r5RgMxtRrL3nHVtFhO94DMTJ6qwkoOiakm7qj1e4g
-#' @param learner_list
-#' * `learner_list` :: `List` of names for `mlr3 Learners` \cr
-#'   Can be used to customize the learners to be tuned over. If no parameter space
-#'   is defined for the selected learner, it will be run with default parameters.
-#'   Default learners for classification: `c("classif.ranger", "classif.xgboost", "classif.liblinear")`,
-#'   default learners for regression: `c("regr.ranger", "regr.xgboost", "regr.svm", "regr.liblinear", "regr.cv_glmnet")`.
-#'   Might break mlr3automl if the learner is incompatible with the provided task.
-#' @param task_type [`classif` | `regr`]
-#' String denoting the type of task
-#' @param num_effective_vars
-#' Number of features after preprocessing. Used to compute `mtry` for Random Forest.
-#' @param using_hyperband
+#' The parameter ranges are based on \href{https://docs.google.com/spreadsheets/d/1A8r5RgMxtRrL3nHVtFhO94DMTJ6qwkoOiakm7qj1e4g}{this Google doc}.
+#'
+#' @param learner_list (`list()` | `character()`) \cr
+#' `List` of names from [mlr_learners][mlr3::mlr_learners]. Can be used to customize the learners to be tuned over. \cr
+#' Default learners for classification: `c("classif.ranger", "classif.xgboost", "classif.liblinear")` \cr
+#' Default learners for regression: `c("regr.ranger", "regr.xgboost", "regr.svm", "regr.liblinear", "regr.cv_glmnet")` \cr
+#' Might break mlr3automl if a user-provided learner is incompatible with the provided task.
+#' @param feature_counts (`integer()`)
+#' 3x2 integer matrix with rownames c("no_encoding", "one_hot_encoding", "impact_encoding")
+#' and colnames c("numeric_cols", "all_cols"). The number of features is needed for tuning
+#' of `mtry` in Random Forest and setting the max. number of components in PCA.
+#' @param using_hyperband (`logical(1)`)
 #' For Tuning with Hyperband, a subsampling budget parameter is added to the pipeline.
-#' @param using_prefixes
+#' @param using_prefixes (`logical(1)`)
 #' If `TRUE`, parameter IDs are prefixed with the `learner$id`. Used to avoid
 #' name conflicts in branched pipelines.
-#' @return
-#' `paradox::ParamSet` containing the search space for the AutoML system
+#' @param preprocessing (`character(1)` | [Graph][mlr3pipelines::Graph])
+#' Type of preprocessing used.
+#' @param feature_types (`character()`)
+#' Types of features in the dataset. Used to determine appropriate imputation methods.
+#' @return [ParamSet][paradox::ParamSet]
 default_params = function(learner_list, feature_counts,
                           using_hyperband = TRUE, using_prefixes = TRUE,
                           preprocessing = "stability",
                           feature_types = NULL) {
   # model is selected during tuning as a branch of the GraphLearner
-  param_set = ParamSet$new()
+  ps = ParamSet$new()
   task_type = sub("\\..*", "", learner_list[[1]])
   if (!(task_type %in% c("classif", "regr"))) {
     warning("Parameter sets have only been tested for classification and
             regression. Check your results carefully.")
   }
 
-  param_set = add_preprocessing_params(param_set, preprocessing, using_hyperband, min(feature_counts[, "numeric_cols"]), feature_types)
+  ps = add_preprocessing_params(ps, preprocessing, using_hyperband, feature_counts, feature_types)
 
   # update parameter set for all known learners
   if (any(grepl("xgboost", learner_list))) {
-    param_set = add_xgboost_params(param_set, task_type, using_prefixes)
+    ps = add_xgboost_params(ps, task_type, using_prefixes)
   }
 
   if (any(grepl("cv_glmnet", learner_list))) {
-    param_set = add_glmnet_params(param_set, task_type, using_prefixes)
+    ps = add_glmnet_params(ps, task_type, using_prefixes)
   }
 
   if (any(grepl("svm", learner_list))) {
-    param_set = add_svm_params(param_set, task_type, using_prefixes)
+    ps = add_svm_params(ps, task_type, using_prefixes)
   }
 
   if (any(grepl("liblinear", learner_list))) {
-    param_set = add_liblinear_params(param_set, task_type, using_prefixes)
+    ps = add_liblinear_params(ps, task_type, using_prefixes)
   }
 
   if (any(grepl("ranger", learner_list))) {
-    param_set = add_ranger_params(param_set, task_type, using_prefixes)
+    ps = add_ranger_params(ps, task_type, using_prefixes)
   }
 
-  param_set$trafo = function(x, param_set) {
+  # add dependencies for branch selection
+  ps = add_branch_selection_dependencies(learner_list, task_type, ps)
+
+  if ("encoding.branch.selection" %in% ps$ids()) {
+    ps = add_encoding_dependencies(learner_list, task_type, ps)
+  }
+
+  ps$trafo = function(x, param_set) {
     if (preprocessing == "full") {
-      x = preprocessing_trafo(x, param_set, task_type, feature_counts[, "numeric_cols"])
+      x = preprocessing_trafo(x, param_set, task_type, feature_counts)
     }
 
     if (any(grepl("xgboost", learner_list))) {
@@ -65,59 +74,64 @@ default_params = function(learner_list, feature_counts,
     }
 
     if (any(grepl("ranger", learner_list))) {
-      counts = feature_counts[, "all_cols"]
-      x = ranger_trafo(x, param_set, task_type, counts, using_prefixes)
+      x = ranger_trafo(x, param_set, task_type, feature_counts, using_prefixes)
     }
 
     if (any(grepl("svm", learner_list))) {
       x = svm_trafo(x, param_set, task_type, using_prefixes)
     }
+
     if (any(grepl("liblinear", learner_list))) {
       x = liblinear_trafo(x, param_set, task_type, using_prefixes)
     }
+    return(x)
   }
 
-  if (length(learner_list) > 1) {
-    param_set$add(ParamFct$new("branch.selection", learner_list))
-    # add dependencies for branch selection
-    for (learner in sub(paste0(task_type, "."), "", learner_list)) {
-      for (param in param_set$ids(tags = learner)) {
-        param_set$add_dep(param, "branch.selection",
-                   CondEqual$new(paste(task_type, learner, sep = ".")))
-      }
-    }
-  }
-
-  return(param_set)
+  return(ps)
 }
 
 preprocessing_trafo = function(x, param_set, task_type, num_effective_vars) {
-  transformed_params = c("dimensionality.pca.rank.")
+  if ("encoding.branch.selection" %in% param_set$ids())
+  x$encoding.branch.selection = x$encoding.branch.selection %??% "stability.nop"
+
+  transformed_param = c("dimensionality.pca.rank.")
+
   if (!is.null(x$encoding.branch.selection) && x$encoding.branch.selection == "stability.encodeimpact") {
-    effective_vars = num_effective_vars['impact_encoding']
+    effective_vars = num_effective_vars["impact_encoding", "numeric_cols"]
   } else if (!is.null(x$encoding.branch.selection) && x$encoding.branch.selection == "stability.encode") {
-    effective_vars = num_effective_vars['one_hot_encoding']
+    effective_vars = num_effective_vars["one_hot_encoding", "numeric_cols"]
   } else {
-    effective_vars = num_effective_vars
+    effective_vars = num_effective_vars["no_encoding", "numeric_cols"]
   }
 
-  for (param in names(x)) {
-    if (param %in% transformed_params) {
-      x[[param]] = max(1, as.integer(as.numeric(x[[param]]) * effective_vars))
+  if (transformed_param %in% names(x)) {
+    target_rank = min(x[[transformed_param]], effective_vars)
+    if (target_rank < 1) {
+      x$dimensionality.branch.selection = "dimensionality.nop"
+      x$dimensionality.pca.rank. = NULL
+    } else {
+      x[[transformed_param]] = target_rank
     }
   }
+
   return(x)
 }
 
 add_preprocessing_params = function(param_set,
                                     preprocessing = "stability",
                                     using_hyperband = TRUE,
-                                    count_numeric_cols = NULL,
+                                    feature_counts,
                                     feature_types) {
   # Hyperband uses subsampling rate as a fidelity parameter
   if (using_hyperband) {
     param_set$add(
       ParamDbl$new("subsample.frac", lower = 0.1, upper = 1, tags = "budget")
+    )
+  }
+
+  if (preprocessing %in% c("stability", "full") && length(intersect(c("integer", "numeric"), feature_types)) > 0) {
+    param_set$add(
+      ParamFct$new("stability.missind.type", "numeric")
     )
   }
 
@@ -132,24 +146,22 @@ add_preprocessing_params = function(param_set,
         ParamFct$new("numeric.branch.selection", c("imputation.imputemean", "imputation.imputemedian"), default = "imputation.imputemean"))
     }
 
-    # factor imputation only happens if factors are present in the dataset
+    # factor imputation and encoding only happen if factors are present in the dataset
     if (length(intersect(c("factor", "character", "ordered"), feature_types)) > 0) {
       param_set$add(
         ParamFct$new("factor.branch.selection", c("imputation.imputeoor", "imputation.imputemode", "imputation.imputesample"), default = "imputation.imputeoor"))
+      param_set$add(ParamFct$new("encoding.branch.selection",
+                                 c("stability.encode", "stability.encodeimpact"),
+                                 special_vals = list("stability.nop")))
     }
-
-    # encoding always happens in robustify_pipeline
-    param_set$add(
-      ParamFct$new("encoding.branch.selection", c("stability.encode", "stability.encodeimpact"), default = "stability.encode"))
 
     # dimensionality reduction only makes sense for high dimensional data
-    if (count_numeric_cols >= 2) {
-      param_set$add(ParamSet$new(list(
-        # ICA has been removed for now due to performance issues
-        ParamFct$new("dimensionality.branch.selection", c("dimensionality.nop", "dimensionality.pca"), default = "dimensionality.nop"),
-        ParamFct$new("dimensionality.pca.rank.", c("0.1", "0.5", "1"), default = "1"))))
-      param_set$add_dep("dimensionality.pca.rank.", "dimensionality.branch.selection", CondEqual$new("dimensionality.pca"))
-    }
+    max_numeric_columns = max(feature_counts[, "numeric_cols"])
+    param_set$add(ParamSet$new(list(
+      # ICA has been removed for now due to performance issues
+      ParamFct$new("dimensionality.branch.selection", c("dimensionality.nop", "dimensionality.pca"), default = "dimensionality.nop"),
+      ParamInt$new("dimensionality.pca.rank.", lower = 1, upper = max_numeric_columns, default = max_numeric_columns))))
+    param_set$add_dep("dimensionality.pca.rank.", "dimensionality.branch.selection", CondEqual$new("dimensionality.pca"))
   }
 
   return(param_set)
@@ -204,7 +216,7 @@ add_xgboost_params = function(param_set, task_type, using_prefixes) {
 
     # subsampling parameters
     ParamDbl$new(paste0(param_id_prefix, "subsample"),
-                 lower = 0.5, upper = 1, default = 1, tags = "xgboost"),
+                 lower = 0.1, upper = 1, default = 1, tags = "xgboost"),
     ParamDbl$new(paste0(param_id_prefix, "colsample_bytree"),
                  lower = 0.5, upper = 1, default = 1, tags = "xgboost"),
     ParamDbl$new(paste0(param_id_prefix, "colsample_bylevel"),
@@ -228,7 +240,7 @@ add_xgboost_params = function(param_set, task_type, using_prefixes) {
 
   # dependencies for dart, gbtree booster
   dart_gbtree_params = paste0(param_id_prefix,
-                              c("colsample_bylevel", "colsample_bytree", "gamma",
+                              c("colsample_bytree", "colsample_bylevel", "gamma",
                                 "max_depth", "min_child_weight", "subsample"))
 
   for (param in dart_gbtree_params) {
@@ -247,14 +259,14 @@ ranger_trafo = function(x, param_set, task_type, num_effective_vars, using_prefi
     params_to_transform = "mtry",
     using_prefixes = using_prefixes)
 
-  if (!is.null(x$dimensionality.ica.n.comp) || !is.null(x$dimensionality.pca.rank.)) {
-    effective_vars = x$dimensionality.ica.n.comp %??% x$dimensionality.pca.rank.
+  if (!is.null(x$dimensionality.pca.rank.)) {
+    effective_vars = x$dimensionality.pca.rank.
   } else if (!is.null(x$encoding.branch.selection) && x$encoding.branch.selection == "stability.encodeimpact") {
-    effective_vars = num_effective_vars['impact_encoding']
+    effective_vars = num_effective_vars["impact_encoding", "all_cols"]
   } else if (!is.null(x$encoding.branch.selection) && x$encoding.branch.selection == "stability.encode") {
-    effective_vars = num_effective_vars['one_hot_encoding']
+    effective_vars = num_effective_vars["one_hot_encoding", "all_cols"]
   } else {
-    effective_vars = num_effective_vars
+    effective_vars = num_effective_vars["no_encoding", "all_cols"]
   }
 
   if (transformed_param %in% names(x)) {
@@ -269,11 +281,17 @@ ranger_trafo = function(x, param_set, task_type, num_effective_vars, using_prefi
 add_ranger_params = function(param_set, task_type, using_prefixes) {
   param_id_prefix = get_param_id_prefix(task_type, "ranger", using_prefixes)
 
-  param_set$add(ParamSet$new(list(
-    ParamDbl$new(paste0(param_id_prefix, "mtry"),
-                 lower = 0.1, upper = 0.9, default = 0.5, tags = "ranger"),
-    ParamFct$new(paste0(param_id_prefix, "splitrule"),
-                 c("gini", "extratrees"), default = "gini", tags = "ranger"))))
+  param_set$add(ParamDbl$new(paste0(param_id_prefix, "mtry"),
+                             lower = 0.1, upper = 0.9, default = 0.5, tags = "ranger"))
+
+  if (task_type == "classif") {
+    param_set$add(ParamFct$new(paste0(param_id_prefix, "splitrule"),
+                               c("gini", "extratrees"), default = "gini", tags = "ranger"))
+  } else if (task_type == "regr") {
+    param_set$add(ParamFct$new(paste0(param_id_prefix, "splitrule"),
+                               c("variance", "extratrees"), default = "variance", tags = "ranger"))
+  }
+
   return(param_set)
 }
 
@@ -382,4 +400,28 @@ get_param_id_prefix = function(task_type, learner_name, using_prefixes) {
     return(paste0(task_type, ".", learner_name, "."))
   }
   return("")
+}
+
+add_branch_selection_dependencies = function(learner_list, task_type, param_set) {
+  if (length(learner_list) > 1) {
+    # featureless learner is contained in pipeline for the portfolio, but
+    # we do not want to select it during tuning
+    active_learners = learner_list[!grepl("featureless", learner_list)]
+
+    param_set$add(ParamFct$new("branch.selection", active_learners,
+                               special_vals = list(paste0(task_type, ".featureless"))))
+    for (learner in sub(paste0(task_type, "."), "", active_learners)) {
+      for (param in param_set$ids(tags = learner)) {
+        param_set$add_dep(param, "branch.selection",
+                          CondEqual$new(paste(task_type, learner, sep = ".")))
+      }
+    }
+  }
+  return(param_set)
+}
+
+add_encoding_dependencies = function(learner_list, task_type, param_set) {
+  encoding_required = sapply(learner_list, function(x) !all(c("ordered", "factor", "character") %in% lrn(x)$feature_types))
+  param_set$add_dep("encoding.branch.selection", "branch.selection",
+                    CondAnyOf$new(c(learner_list[encoding_required], paste0(task_type, ".featureless"))))
 }

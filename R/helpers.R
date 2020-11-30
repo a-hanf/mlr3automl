@@ -1,26 +1,24 @@
 #' @title Create an AutoTuner with a single line of code
-#' @name create_autotuner
+#'
 #' @description
-#' Small utility function, which creates an AutoTuner for a given learner. The
-#' parameter spaces are identical to the ones used in `mlr3automl`.
-#' @param learner [mlr3::Learner] \cr
-#'   Learner inside the AutoTuner. Parameter sets are predefined for
-#'   `ranger`, `xgboost`, `liblinear`, `svm` and `cv_glmnet` learners for both
-#'   prediction and regression. Other learners will obtain empty parameter sets.
-#' @param resampling \cr
-#'   mlr3::Resampling object
-#' @param measure \cr
-#'   mlr3::Measure object
-#' @param terminator \cr
-#'   bbotk::Terminator object
-#' @param tuner \cr
-#'   mlr3tuning::Tuner object. Hyperband is supported by creating a
-#'   `GraphLearner` with `PipeOpSubsampling`.
+#' Small utility function, which creates an [AutoTuner][mlr3tuning::AutoTuner] for a given [learner][mlr3::Learner]. \cr
+#' Uses the same interface as the [AutoTuner][mlr3tuning::AutoTuner], but provides defaults for all arguments. \cr
+#' Parameter spaces are identical to the ones used in [mlr3automl].
+#' @param learner (`character(1)` | [Learner][mlr3::Learner]) \cr
+#' Learner inside the [AutoTuner][mlr3tuning::AutoTuner]. Parameter sets are predefined for
+#' `ranger`, `xgboost`, `liblinear`, `svm` and `cv_glmnet` learners for both
+#' prediction and regression. Other learners will obtain empty parameter sets.
+#' @param resampling ([Resampling][mlr3::Resampling]) \cr
+#' @param measure ([Measure][mlr3::Measure]) \cr
+#' @param terminator ([Terminator][bbotk::Terminator])\cr
+#' @param tuner ([Tuner][mlr3tuning::Tuner] | [TunerHyperband][mlr3hyperband::TunerHyperband])\cr
+#' Tuner. Hyperband is supported by creating a [`GraphLearner`][mlr3pipelines::GraphLearner]
+#' with [`PipeOpSubsample`][mlr3pipelines::PipeOpSubsample].
 #' @param num_effective_vars \cr
-#'   Integer giving the number of features in the dataset. Only required for
-#'   parameter transformation of `mtry` in Random Forest (we are tuning over
-#'   `num_effective_vars^0.1` to `num_effective_vars^0.9`)
-#' @return [`AutoTuner`]
+#' Integer giving the number of features in the dataset. Only required for
+#' parameter transformation of `mtry` in Random Forest (we are tuning over
+#' `num_effective_vars^0.1` to `num_effective_vars^0.9`)
+#' @return [AutoTuner][mlr3tuning::AutoTuner]
 #' @examples
 #' \donttest{
 #' library(mlr3automl)
@@ -58,8 +56,8 @@ create_autotuner = function(
     using_hyperband = FALSE
   }
 
-  params = default_params(learner = learner$id,
-                          feature_counts = matrix(rep(num_effective_vars, 2), ncol = 2, byrow = TRUE, dimnames = list("num_vars", c("numeric_cols", "all_cols"))),
+  params = default_params(learner_list = learner$id,
+                          feature_counts = matrix(num_effective_vars, ncol = 2, nrow = 3, byrow = TRUE, dimnames = list(c("no_encoding", "one_hot_encoding", "impact_encoding"), c("numeric_cols", "all_cols"))),
                           using_hyperband,
                           using_prefixes = using_hyperband,
                           preprocessing = "none")
@@ -92,7 +90,12 @@ add_branching = function(current_pipeline, choices, id, columns) {
   for (pipeop in choices) {
     if (!(pipeop %in% current_pipeline$ids())) {
       pipeop_name = sub(".*\\.", "", pipeop)
-      current_pipeline$add_pipeop(po(pipeop_name, affect_columns = selector_type(columns), id = pipeop))
+      if (pipeop_name != "nop") {
+        current_pipeline$add_pipeop(po(pipeop_name, affect_columns = selector_type(columns), id = pipeop))
+      } else {
+        current_pipeline$add_pipeop(po(pipeop_name, id = pipeop))
+      }
+
     }
     current_pipeline$add_edge(id, pipeop, src_channel = pipeop)
   }
@@ -125,7 +128,12 @@ replace_existing_node = function(current_pipeline, existing_pipeop, pipeop_choic
                   id = paste0(branching_prefix, "unbranch"))
 
   # connect new subgraph to predecessor and successor
-  current_pipeline$add_edge(paste0(branching_prefix, "unbranch"), neighbor_nodes['successor'])
-  current_pipeline$add_edge(neighbor_nodes['predecessor'], paste0(branching_prefix, "branch"))
+  if (!is.na(neighbor_nodes["successor"])) {
+    current_pipeline$add_edge(paste0(branching_prefix, "unbranch"), neighbor_nodes["successor"])
+  }
+
+  if (!is.na(neighbor_nodes["predecessor"])) {
+    current_pipeline$add_edge(neighbor_nodes["predecessor"], paste0(branching_prefix, "branch"))
+  }
 }
 

@@ -7,42 +7,40 @@
 create_autotuner(
   learner = lrn("classif.xgboost"),
   resampling = rsmp("cv", folds = 10),
-  measure,
+  measure = NULL,
   terminator = trm("run_time", secs = 60),
   tuner = tnr("random_search"),
   num_effective_vars = NULL
 )
 }
 \arguments{
-\item{learner}{[mlr3::Learner] \cr
-Learner inside the AutoTuner. Parameter sets are predefined for
-`ranger`, `xgboost`, `liblinear`, `svm` and `cv_glmnet` learners for both
+\item{learner}{(\code{character(1)} | \link[mlr3:Learner]{Learner}) \cr
+Learner inside the \link[mlr3tuning:AutoTuner]{AutoTuner}. Parameter sets are predefined for
+\code{ranger}, \code{xgboost}, \code{liblinear}, \code{svm} and \code{cv_glmnet} learners for both
 prediction and regression. Other learners will obtain empty parameter sets.}
 
-\item{resampling}{\cr
-mlr3::Resampling object}
+\item{resampling}{(\link[mlr3:Resampling]{Resampling}) \cr}
 
-\item{measure}{\cr
-mlr3::Measure object}
+\item{measure}{(\link[mlr3:Measure]{Measure}) \cr}
 
-\item{terminator}{\cr
-bbotk::Terminator object}
+\item{terminator}{(\link[bbotk:Terminator]{Terminator})\cr}
 
-\item{tuner}{\cr
-mlr3tuning::Tuner object. Hyperband is supported by creating a
-`GraphLearner` with `PipeOpSubsampling`.}
+\item{tuner}{(\link[mlr3tuning:Tuner]{Tuner} | \link[mlr3hyperband:mlr_tuners_hyperband]{TunerHyperband})\cr
+Tuner. Hyperband is supported by creating a \code{\link[mlr3pipelines:mlr_learners_graph]{GraphLearner}}
+with \code{\link[mlr3pipelines:mlr_pipeops_subsample]{PipeOpSubsample}}.}
 
 \item{num_effective_vars}{\cr
 Integer giving the number of features in the dataset. Only required for
-parameter transformation of `mtry` in Random Forest (we are tuning over
-`num_effective_vars^0.1` to `num_effective_vars^0.9`)}
+parameter transformation of \code{mtry} in Random Forest (we are tuning over
+\code{num_effective_vars^0.1} to \code{num_effective_vars^0.9})}
 }
 \value{
-[`AutoTuner`]
+\link[mlr3tuning:AutoTuner]{AutoTuner}
 }
 \description{
-Small utility function, which creates an AutoTuner for a given learner. The
-parameter spaces are identical to the ones used in `mlr3automl`.
+Small utility function, which creates an \link[mlr3tuning:AutoTuner]{AutoTuner} for a given \link[mlr3:Learner]{learner}. \cr
+Uses the same interface as the \link[mlr3tuning:AutoTuner]{AutoTuner}, but provides defaults for all arguments. \cr
+Parameter spaces are identical to the ones used in \link{mlr3automl}.
 }
 \examples{
 \donttest{

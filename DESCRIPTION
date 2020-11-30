@@ -14,16 +14,21 @@ Depends:
     R (>= 3.1.0)
 Imports:
     checkmate,
+    data.table,
     mlr3,
     mlr3pipelines,
     mlr3tuning,
     mlr3learners,
-	mlr3extralearners,
+    mlr3extralearners,
+    mlr3hyperband,
+    mlr3misc,
     mlr3oml,
     paradox,
+    LiblineaR,
+    xgboost,
+    glmnet,
     R6,
-	xgboost,
-	glmnet
-Suggests: 
     testthat
+Roxygen: list(markdown = TRUE, r6 = TRUE)
 RoxygenNote: 7.1.1
+

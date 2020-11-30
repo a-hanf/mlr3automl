@@ -14,26 +14,33 @@ default_params(
 )
 }
 \arguments{
-\item{learner_list}{* `learner_list` :: `List` of names for `mlr3 Learners` \cr
-Can be used to customize the learners to be tuned over. If no parameter space
-is defined for the selected learner, it will be run with default parameters.
-Default learners for classification: `c("classif.ranger", "classif.xgboost", "classif.liblinear")`,
-default learners for regression: `c("regr.ranger", "regr.xgboost", "regr.svm", "regr.liblinear", "regr.cv_glmnet")`.
-Might break mlr3automl if the learner is incompatible with the provided task.}
+\item{learner_list}{(\code{list()} | \code{character()}) \cr
+\code{List} of names from \link[mlr3:mlr_learners]{mlr_learners}. Can be used to customize the learners to be tuned over. \cr
+Default learners for classification: \code{c("classif.ranger", "classif.xgboost", "classif.liblinear")} \cr
+Default learners for regression: \code{c("regr.ranger", "regr.xgboost", "regr.svm", "regr.liblinear", "regr.cv_glmnet")} \cr
+Might break mlr3automl if a user-provided learner is incompatible with the provided task.}
 
-\item{using_hyperband}{For Tuning with Hyperband, a subsampling budget parameter is added to the pipeline.}
+\item{feature_counts}{(\code{integer()})
+3x2 integer matrix with rownames c("no_encoding", "one_hot_encoding", "impact_encoding")
+and colnames c("numeric_cols", "all_cols"). The number of features is needed for tuning
+of \code{mtry} in Random Forest and setting the max. number of components in PCA.}
 
-\item{using_prefixes}{If `TRUE`, parameter IDs are prefixed with the `learner$id`. Used to avoid
+\item{using_hyperband}{(\code{logical(1)})
+For Tuning with Hyperband, a subsampling budget parameter is added to the pipeline.}
+
+\item{using_prefixes}{(\code{logical(1)})
+If \code{TRUE}, parameter IDs are prefixed with the \code{learner$id}. Used to avoid
 name conflicts in branched pipelines.}
 
-\item{task_type}{[`classif` | `regr`]
-String denoting the type of task}
+\item{preprocessing}{(\code{character(1)} | \link[mlr3pipelines:Graph]{Graph})
+Type of preprocessing used.}
 
-\item{num_effective_vars}{Number of features after preprocessing. Used to compute `mtry` for Random Forest.}
+\item{feature_types}{(\code{character()})
+Types of features in the dataset. Used to determine appropriate imputation methods.}
 }
 \value{
-`paradox::ParamSet` containing the search space for the AutoML system
+\link[paradox:ParamSet]{ParamSet}
 }
 \description{
-The parameter ranges are based on
+The parameter ranges are based on \href{https://docs.google.com/spreadsheets/d/1A8r5RgMxtRrL3nHVtFhO94DMTJ6qwkoOiakm7qj1e4g}{this Google doc}.
 }
