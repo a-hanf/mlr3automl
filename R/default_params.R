@@ -65,10 +65,6 @@ default_params = function(learner_list, feature_counts,
   }
 
   ps$trafo = function(x, param_set) {
-    if (preprocessing == "full") {
-      x = preprocessing_trafo(x, param_set, task_type, feature_counts)
-    }
-
     if (any(grepl("xgboost", learner_list))) {
       x = xgboost_trafo(x, param_set, task_type, using_prefixes)
     }
@@ -88,33 +84,6 @@ default_params = function(learner_list, feature_counts,
   }
 
   return(ps)
-}
-
-preprocessing_trafo = function(x, param_set, task_type, num_effective_vars) {
-  if ("encoding.branch.selection" %in% param_set$ids())
-  x$encoding.branch.selection = x$encoding.branch.selection %??% "stability.nop"
-
-  transformed_param = c("dimensionality.pca.rank.")
-
-  if (!is.null(x$encoding.branch.selection) && x$encoding.branch.selection == "stability.encodeimpact") {
-    effective_vars = num_effective_vars["impact_encoding", "numeric_cols"]
-  } else if (!is.null(x$encoding.branch.selection) && x$encoding.branch.selection == "stability.encode") {
-    effective_vars = num_effective_vars["one_hot_encoding", "numeric_cols"]
-  } else {
-    effective_vars = num_effective_vars["no_encoding", "numeric_cols"]
-  }
-
-  if (transformed_param %in% names(x)) {
-    target_rank = min(x[[transformed_param]], effective_vars)
-    if (target_rank < 1) {
-      x$dimensionality.branch.selection = "dimensionality.nop"
-      x$dimensionality.pca.rank. = NULL
-    } else {
-      x[[transformed_param]] = target_rank
-    }
-  }
-
-  return(x)
 }
 
 add_preprocessing_params = function(param_set,
@@ -137,31 +106,12 @@ add_preprocessing_params = function(param_set,
 
   # add feature preprocessing
   if (preprocessing == "full") {
-    # numerical imputation only happens if ints/numerical columns are present in the dataset
-    if (length(intersect(c("integer", "numeric"), feature_types)) > 0) {
-      param_set$add(
-        # histogram imputation is removed until this issue is fixed:
-        # https://github.com/mlr-org/mlr3pipelines/issues/545
-        # ParamFct$new("numeric.branch.selection", c("imputation.imputehist", "imputation.imputemean", "imputation.imputemedian"), default = "imputation.imputemean"))
-        ParamFct$new("numeric.branch.selection", c("imputation.imputemean", "imputation.imputemedian"), default = "imputation.imputemean"))
-    }
-
     # factor imputation and encoding only happen if factors are present in the dataset
     if (length(intersect(c("factor", "character", "ordered"), feature_types)) > 0) {
-      param_set$add(
-        ParamFct$new("factor.branch.selection", c("imputation.imputeoor", "imputation.imputemode", "imputation.imputesample"), default = "imputation.imputeoor"))
       param_set$add(ParamFct$new("encoding.branch.selection",
                                  c("stability.encode", "stability.encodeimpact"),
-                                 special_vals = list("stability.nop")))
+                                 default = "stability.encodeimpact"))
     }
-
-    # dimensionality reduction only makes sense for high dimensional data
-    max_numeric_columns = max(feature_counts[, "numeric_cols"])
-    param_set$add(ParamSet$new(list(
-      # ICA has been removed for now due to performance issues
-      ParamFct$new("dimensionality.branch.selection", c("dimensionality.nop", "dimensionality.pca"), default = "dimensionality.nop"),
-      ParamInt$new("dimensionality.pca.rank.", lower = 1, upper = max_numeric_columns, default = max_numeric_columns))))
-    param_set$add_dep("dimensionality.pca.rank.", "dimensionality.branch.selection", CondEqual$new("dimensionality.pca"))
   }
 
   return(param_set)
@@ -259,9 +209,7 @@ ranger_trafo = function(x, param_set, task_type, num_effective_vars, using_prefi
     params_to_transform = "mtry",
     using_prefixes = using_prefixes)
 
-  if (!is.null(x$dimensionality.pca.rank.)) {
-    effective_vars = x$dimensionality.pca.rank.
-  } else if (!is.null(x$encoding.branch.selection) && x$encoding.branch.selection == "stability.encodeimpact") {
+  if (!is.null(x$encoding.branch.selection) && x$encoding.branch.selection == "stability.encodeimpact") {
     effective_vars = num_effective_vars["impact_encoding", "all_cols"]
   } else if (!is.null(x$encoding.branch.selection) && x$encoding.branch.selection == "stability.encode") {
     effective_vars = num_effective_vars["one_hot_encoding", "all_cols"]
@@ -422,6 +370,12 @@ add_branch_selection_dependencies = function(learner_list, task_type, param_set)
 
 add_encoding_dependencies = function(learner_list, task_type, param_set) {
   encoding_required = sapply(learner_list, function(x) !all(c("ordered", "factor", "character") %in% lrn(x)$feature_types))
+
+  # ranger works without encoding, but fails on features with >53 categories
+  # always encode ranger learners for stability
+  if (any(grepl("ranger", learner_list))) {
+    encoding_required[[paste0(task_type, ".ranger")]] <- TRUE
+  }
   param_set$add_dep("encoding.branch.selection", "branch.selection",
                     CondAnyOf$new(c(learner_list[encoding_required], paste0(task_type, ".featureless"))))
 }

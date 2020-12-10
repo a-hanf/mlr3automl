@@ -279,29 +279,13 @@ AutoMLBase = R6Class("AutoMLBase",
       }
       stability_preprocessing$update_ids(prefix = "stability.")
 
-      # renaming is needed, otherwise we have two PipeOps called
-      # "imputesample" (in factor imputation and later on for stability of
-      # the fixfactors operator)
-      if ("stability.imputeoor" %in% stability_preprocessing$ids()) {
-        stability_preprocessing$set_names("stability.imputeoor", "imputation.imputeoor")
-      }
-      if ("stability.imputehist" %in% stability_preprocessing$ids()) {
-        stability_preprocessing$set_names("stability.imputehist", "imputation.imputehist")
-      }
-
       if (self$preprocessing == "stability") {
         return(stability_preprocessing)
       }
 
-      # for feature preprocessing,  we add more imputation / encoding methods
-      # as well as dimensionality reduction pipeops and tune over their params
-
-      # first, add more imputation / encoding ops to existing pipeline
+      # extended preprocessing adds more options for factor encoding
       private$.extend_preprocessing(stability_preprocessing)
-
-      dimensionality_reduction = list(po("pca"), po("nop"))
-      names(dimensionality_reduction) = sapply(dimensionality_reduction, function(x) paste0("dimensionality.", x$id))
-      return(stability_preprocessing %>>% po("scale") %>>% ppl("branch", graphs = dimensionality_reduction)$update_ids(prefix = "dimensionality."))
+      return(stability_preprocessing)
     },
     .create_robust_learner = function(learner_name) {
       # liblinear only works with columns of type double. Convert ints / bools -> dbl
@@ -352,24 +336,16 @@ AutoMLBase = R6Class("AutoMLBase",
       return(result)
     },
     .extend_preprocessing = function(current_pipeline) {
-      if ("imputation.imputehist" %in% current_pipeline$ids())
-      replace_existing_node(current_pipeline,
-                            existing_pipeop = "imputation.imputehist",
-                            pipeop_choices =  c("imputation.imputehist", "imputation.imputemean", "imputation.imputemedian"),
-                            branching_prefix = "numeric.",
-                            columns = c("integer", "numeric"))
-
-      if ("imputation.imputeoor" %in% current_pipeline$ids())
-      replace_existing_node(current_pipeline,
-                            existing_pipeop = "imputation.imputeoor",
-                            pipeop_choices =  c("imputation.imputemode", "imputation.imputeoor", "imputation.imputesample"),
-                            branching_prefix = "factor.",
-                            columns = c("factor", "ordered", "character"))
-
+      if ("stability.imputehist" %in% current_pipeline$ids())
+        replace_existing_node(current_pipeline,
+                              existing_pipeop = "stability.imputehist",
+                              pipeop_choices =  c("stability.imputemean"),
+                              branching_prefix = "numeric.",
+                              columns = c("integer", "numeric"))
       if ("stability.encodeimpact" %in% current_pipeline$ids())
       replace_existing_node(current_pipeline,
                             existing_pipeop = "stability.encodeimpact",
-                            pipeop_choices =  c("stability.encode", "stability.encodeimpact", "stability.nop"),
+                            pipeop_choices =  c("stability.encode", "stability.encodeimpact"),
                             branching_prefix = "encoding.",
                             columns = c("integer", "numeric", "factor", "ordered", "character"))
     }
