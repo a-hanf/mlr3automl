@@ -201,7 +201,7 @@ AutoMLBase = R6Class("AutoMLBase",
     .get_default_learner = function() {
       # number of variables is needed for setting mtry in ranger
       # also for setting max rank in PCA/ICA during feature preprocessing
-      if (any(grepl("ranger", self$learner_list)) || self$preprocessing == "full") {
+      if (any(grepl("ranger", self$learner_list)) || (is.character(self$preprocessing) && self$preprocessing == "full")) {
         feature_counts = private$.compute_num_effective_vars()
       } else {
         feature_counts = NULL

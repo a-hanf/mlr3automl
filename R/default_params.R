@@ -98,14 +98,14 @@ add_preprocessing_params = function(param_set,
     )
   }
 
-  if (preprocessing %in% c("stability", "full") && length(intersect(c("integer", "numeric"), feature_types)) > 0) {
+  if (is.character(preprocessing) && preprocessing %in% c("stability", "full") && length(intersect(c("integer", "numeric"), feature_types)) > 0) {
     param_set$add(
       ParamFct$new("stability.missind.type", "numeric")
     )
   }
 
   # add feature preprocessing
-  if (preprocessing == "full") {
+  if (is.character(preprocessing) && preprocessing == "full") {
     # factor imputation and encoding only happen if factors are present in the dataset
     if (length(intersect(c("factor", "character", "ordered"), feature_types)) > 0) {
       param_set$add(ParamFct$new("encoding.branch.selection",
