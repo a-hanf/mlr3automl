@@ -1,6 +1,6 @@
 ---
 title: "mlr3automl"
-output: rmarkdown::html_vignette
+output: rmarkdown::github_document
 vignette: >
   %\VignetteIndexEntry{mlr3automl}
   %\VignetteEngine{knitr::rmarkdown}
@@ -138,6 +138,15 @@ When selecting the best model for a data set, up to 8 predefined pipelines are e
 We use Hyperband [@li2017hyperband] to tune the hyperparameters of our machine learning pipeline. Hyperband speeds up random search through adaptive resource allocation and early-stopping. When tuning the hyperparameters in `mlr3automl`, at first many learners will be evaluated on small subsets of the dataset (this is quick). Later on, fewer models get trained on larger subsets or the full dataset (which is more expensive computationally). This allows us to find promising pipelines with little computational cost.
 
 ## Performance and benchmarks
-
+```{r, eval = TRUE, echo = FALSE}
+knitr::kable(
+  data.table::data.table(
+    Framework = c("AutoGluon", "autosklearn v0.8", "autosklearn v2.0", "H2O AutoML", "mlr3automl", "TPOT"), 
+    mean_AUC = c("88.3%", "83.0%", "71.7%", "83.8%", "87.2%", "82.5%"), 
+    mean_ACC = c("85.2%", "78.1%", "60.0%", "74.0%", "82.4%", "61.0%"), 
+    Failures = c(0, 2, 9, 2, 0, 6))
+)
+```
+We benchmarked mlr3automl on the AutoML benchmark, which contains 39 challenging classification data sets. Under a restrictive time budget of at most 1 hour per task, mlr3automl performed second best out of the 5 competing systems and successfully completed every single task.
 
 ## References
