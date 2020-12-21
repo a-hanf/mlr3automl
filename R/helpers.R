@@ -88,15 +88,7 @@ add_branching = function(current_pipeline, choices, id, columns) {
 
   # add new pipeops and edges
   for (pipeop in choices) {
-    if (!(pipeop %in% current_pipeline$ids())) {
-      pipeop_name = sub(".*\\.", "", pipeop)
-      if (pipeop_name != "nop") {
-        current_pipeline$add_pipeop(po(pipeop_name, affect_columns = selector_type(columns), id = pipeop))
-      } else {
-        current_pipeline$add_pipeop(po(pipeop_name, id = pipeop))
-      }
-
-    }
+    add_pipeop(current_pipeline, pipeop, columns)
     current_pipeline$add_edge(id, pipeop, src_channel = pipeop)
   }
 }
@@ -109,6 +101,17 @@ add_unbranching = function(current_pipeline, choices, id) {
   }
 }
 
+add_pipeop = function(current_pipeline, pipeop, columns) {
+  if (!(pipeop %in% current_pipeline$ids())) {
+    pipeop_name = sub(".*\\.", "", pipeop)
+    if (pipeop_name != "nop") {
+      current_pipeline$add_pipeop(po(pipeop_name, affect_columns = selector_type(columns), id = pipeop))
+    } else {
+      current_pipeline$add_pipeop(po(pipeop_name, id = pipeop))
+    }
+  }
+}
+
 replace_existing_node = function(current_pipeline, existing_pipeop, pipeop_choices, branching_prefix, columns) {
   # get predecessor and successor of node to be replaced
   neighbor_nodes = get_predecessor_successor(current_pipeline, existing_pipeop)
@@ -116,24 +119,41 @@ replace_existing_node = function(current_pipeline, existing_pipeop, pipeop_choic
   # remove source and destination edge of existing node
   remove_existing_edges(current_pipeline, existing_pipeop)
 
-  # add new branching
-  add_branching(current_pipeline,
-                choices = pipeop_choices,
-                id = paste0(branching_prefix, "branch"),
-                columns = columns)
-
-  # add unbranching pipeop and connect
-  add_unbranching(current_pipeline,
+  if (length(pipeop_choices) > 1) {
+    # add new branching
+    add_branching(current_pipeline,
                   choices = pipeop_choices,
-                  id = paste0(branching_prefix, "unbranch"))
+                  id = paste0(branching_prefix, "branch"),
+                  columns = columns)
+
+    # add unbranching pipeop and connect
+    add_unbranching(current_pipeline,
+                    choices = pipeop_choices,
+                    id = paste0(branching_prefix, "unbranch"))
+  } else {
+    # we do not need branching here
+    add_pipeop(current_pipeline, pipeop_choices[[1]], columns)
+  }
 
   # connect new subgraph to predecessor and successor
   if (!is.na(neighbor_nodes["successor"])) {
-    current_pipeline$add_edge(paste0(branching_prefix, "unbranch"), neighbor_nodes["successor"])
+    if (length(pipeop_choices) > 1) {
+      current_pipeline$add_edge(paste0(branching_prefix, "unbranch"), neighbor_nodes["successor"])
+    } else {
+      current_pipeline$add_edge(pipeop_choices[[1]], neighbor_nodes["successor"])
+    }
   }
 
   if (!is.na(neighbor_nodes["predecessor"])) {
-    current_pipeline$add_edge(neighbor_nodes["predecessor"], paste0(branching_prefix, "branch"))
+    if (length(pipeop_choices) > 1) {
+      current_pipeline$add_edge(neighbor_nodes["predecessor"], paste0(branching_prefix, "branch"))
+    } else {
+      current_pipeline$add_edge(neighbor_nodes["predecessor"], pipeop_choices[[1]])
+    }
+  }
+
+  if (!(existing_pipeop %in% pipeop_choices)) {
+    current_pipeline$pipeops[[existing_pipeop]] <- NULL
   }
 }
 
