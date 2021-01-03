@@ -137,7 +137,7 @@ AutoMLBase = R6Class("AutoMLBase",
 
       self$task = task
       self$resampling = resampling %??% rsmp("holdout")
-      self$preprocessing = preprocessing %??% "stability"
+      self$preprocessing = preprocessing %??% "full"
 
       self$runtime = assert_number(runtime, lower = 0)
       self$learner_timeout = assert_number(learner_timeout, lower = 0, null.ok = TRUE) %??% runtime / 5  # maybe choose a larger divisor here
