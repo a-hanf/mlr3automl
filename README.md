@@ -25,9 +25,9 @@ model$train()
 
 ## Documentation
 
-Documentation will be updated soon, for now refer to the roxygen documentation,
-for example via:
+[The vignette](vignettes/mlr3automl.md) is a good starting point.
 
+For the function reference, check the roxygen documentation:
 ```
 ?mlr3automl::AutoML
 ```
