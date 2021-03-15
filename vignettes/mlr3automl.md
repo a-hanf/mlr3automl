@@ -132,23 +132,24 @@ hyperparameters in `mlr3automl`, at first many learners will be
 evaluated on small subsets of the dataset (this is quick). Later on,
 fewer models get trained on larger subsets or the full dataset (which is
 more expensive computationally). This allows us to find promising
-pipelines with little computational cost.
+pipelines with little computational
+cost.
 
 ## Performance and benchmarks
 
-| Framework        | mean\_AUC | mean\_ACC | Failures |
-| :--------------- | :-------- | :-------- | -------: |
-| AutoGluon        | 88.3%     | 85.2%     |        0 |
-| autosklearn v0.8 | 83.0%     | 78.1%     |        2 |
-| autosklearn v2.0 | 71.7%     | 60.0%     |        9 |
-| H2O AutoML       | 83.8%     | 74.0%     |        2 |
-| mlr3automl       | 87.2%     | 82.4%     |        0 |
-| TPOT             | 82.5%     | 61.0%     |        6 |
+| Framework        | avg. rank(binary tasks) | avg. rank(multi-class) | Failures |
+| :--------------- | :---------------------- | :--------------------- | -------: |
+| AutoGluon        | 2.32                    | 2.09                   |        0 |
+| autosklearn v0.8 | 3.34                    | 3.15                   |        2 |
+| autosklearn v2.0 | 3.57                    | 4.06                   |        9 |
+| H2O AutoML       | 3.18                    | 3.24                   |        2 |
+| mlr3automl       | 4.55                    | 3.79                   |        0 |
+| TPOT             | 4.05                    | 4.68                   |        6 |
 
 We benchmarked mlr3automl on the AutoML benchmark, which contains 39
 challenging classification data sets. Under a restrictive time budget of
-at most 1 hour per task, mlr3automl performed second best out of the 5
-competing systems and successfully completed every single task.
+at most 1 hour per task, mlr3automl successfully completed every single
+task.
 
 ## References
 

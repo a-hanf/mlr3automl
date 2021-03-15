@@ -142,11 +142,11 @@ We use Hyperband [@li2017hyperband] to tune the hyperparameters of our machine l
 knitr::kable(
   data.table::data.table(
     Framework = c("AutoGluon", "autosklearn v0.8", "autosklearn v2.0", "H2O AutoML", "mlr3automl", "TPOT"), 
-    mean_AUC = c("88.3%", "83.0%", "71.7%", "83.8%", "87.2%", "82.5%"), 
-    mean_ACC = c("85.2%", "78.1%", "60.0%", "74.0%", "82.4%", "61.0%"), 
+    "avg. rank(binary tasks)" = c("2.32", "3.34", "3.57", "3.18", "4.55", "4.05"), 
+    "avg. rank(multi-class)" = c("2.09", "3.15", "4.06", "3.24", "3.79", "4.68"), 
     Failures = c(0, 2, 9, 2, 0, 6))
 )
 ```
-We benchmarked mlr3automl on the AutoML benchmark, which contains 39 challenging classification data sets. Under a restrictive time budget of at most 1 hour per task, mlr3automl performed second best out of the 5 competing systems and successfully completed every single task.
+We benchmarked mlr3automl on the AutoML benchmark, which contains 39 challenging classification data sets. Under a restrictive time budget of at most 1 hour per task, mlr3automl successfully completed every single task.
 
 ## References
