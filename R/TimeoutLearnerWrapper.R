@@ -170,7 +170,6 @@ TunerWrapperHardTimeout = R6Class("TunerWrapperTimeout", inherit = mlr3tuning::T
 
 OptimizerChain = R6Class("OptimizerChain", inherit = bbotk::Optimizer,
   public = list(
-    param_set = NULL,
     param_classes = NULL,
     properties = NULL,
     packages = NULL,
@@ -219,6 +218,7 @@ OptimizerChain = R6Class("OptimizerChain", inherit = bbotk::Optimizer,
     }
   ),
   private = list(
+    .param_set = NULL,
     .optimizers = NULL,
     .additional_terminators = NULL,
     deep_clone = function(name, value) {
