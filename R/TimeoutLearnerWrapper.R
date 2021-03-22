@@ -170,9 +170,6 @@ TunerWrapperHardTimeout = R6Class("TunerWrapperTimeout", inherit = mlr3tuning::T
 
 OptimizerChain = R6Class("OptimizerChain", inherit = bbotk::Optimizer,
   public = list(
-    param_classes = NULL,
-    properties = NULL,
-    packages = NULL,
     initialize = function(optimizers, additional_terminators = rep(list(NULL), length(optimizers))) {
       assert_list(optimizers, types = c("Tuner", "Optimizer"), any.missing = FALSE)
       assert_list(additional_terminators, types = c("Terminator", "NULL"), len = length(optimizers))

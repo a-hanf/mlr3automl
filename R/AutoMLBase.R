@@ -143,9 +143,7 @@ AutoMLBase = R6Class("AutoMLBase",
       self$learner_timeout = assert_number(learner_timeout, lower = 0, null.ok = TRUE) %??% runtime / 5  # maybe choose a larger divisor here
       self$tuning_terminator = terminator %??% trm("none")
       self$portfolio = assert_logical(portfolio, len = 1)
-
-      self$tuner = tnr("random_search")
-      # self$tuner = tnr("hyperband", eta = 3L)
+      self$tuner = tnr("hyperband", eta = 3L)
       self$learner = private$.get_default_learner()
     },
     #' @description
