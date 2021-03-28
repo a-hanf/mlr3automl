@@ -129,10 +129,6 @@ LearnerWrapperExpire = R6Class("LearnerWrapperExpire", inherit = mlr3::Learner,
 # The learner must have a fallback learner.
 TunerWrapperHardTimeout = R6Class("TunerWrapperTimeout", inherit = mlr3tuning::Tuner,
   public = list(
-    param_set = NULL,
-    param_classes = NULL,
-    properties = NULL,
-    packages = NULL,
     timeout = NULL,
     initialize = function(tuner, timeout) {
       super$initialize(param_set = tuner$param_set, param_classes = tuner$param_classes,
