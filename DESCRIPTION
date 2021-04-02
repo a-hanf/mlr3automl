@@ -15,6 +15,7 @@ Depends:
 Imports:
     checkmate,
     data.table,
+    future,
     mlr3,
     mlr3pipelines,
     mlr3tuning,
@@ -24,11 +25,12 @@ Imports:
     mlr3misc,
     mlr3oml,
     paradox,
-    LiblineaR,
-    xgboost,
-    glmnet,
     R6,
-    testthat
+    testthat,
+    glmnet,
+    LiblineaR,
+    ranger,
+    xgboost
 Roxygen: list(markdown = TRUE, r6 = TRUE)
 RoxygenNote: 7.1.1
 Suggests: 

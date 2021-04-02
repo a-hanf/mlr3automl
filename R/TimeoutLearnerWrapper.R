@@ -129,10 +129,6 @@ LearnerWrapperExpire = R6Class("LearnerWrapperExpire", inherit = mlr3::Learner,
 # The learner must have a fallback learner.
 TunerWrapperHardTimeout = R6Class("TunerWrapperTimeout", inherit = mlr3tuning::Tuner,
   public = list(
-    param_set = NULL,
-    param_classes = NULL,
-    properties = NULL,
-    packages = NULL,
     timeout = NULL,
     initialize = function(tuner, timeout) {
       super$initialize(param_set = tuner$param_set, param_classes = tuner$param_classes,
@@ -170,10 +166,6 @@ TunerWrapperHardTimeout = R6Class("TunerWrapperTimeout", inherit = mlr3tuning::T
 
 OptimizerChain = R6Class("OptimizerChain", inherit = bbotk::Optimizer,
   public = list(
-    param_set = NULL,
-    param_classes = NULL,
-    properties = NULL,
-    packages = NULL,
     initialize = function(optimizers, additional_terminators = rep(list(NULL), length(optimizers))) {
       assert_list(optimizers, types = c("Tuner", "Optimizer"), any.missing = FALSE)
       assert_list(additional_terminators, types = c("Terminator", "NULL"), len = length(optimizers))
@@ -219,6 +211,7 @@ OptimizerChain = R6Class("OptimizerChain", inherit = bbotk::Optimizer,
     }
   ),
   private = list(
+    .param_set = NULL,
     .optimizers = NULL,
     .additional_terminators = NULL,
     deep_clone = function(name, value) {
