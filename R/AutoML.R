@@ -57,7 +57,6 @@ AutoML = function(task, learner_list = NULL, learner_timeout = NULL,
                   resampling = NULL, measure = NULL, runtime = Inf,
                   terminator = NULL, preprocessing = NULL,
                   portfolio = TRUE) {
-  future::plan(future::multicore)
   if (task$task_type == "classif") {
     # stratify target variable so that every target label appears
     # in all folds while resampling
