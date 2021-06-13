@@ -65,7 +65,8 @@ AutoMLRegr = R6Class(
     #' @return [AutoMLRegr][mlr3automl::AutoMLRegr]
     initialize = function(task, learner_list = NULL, learner_timeout = NULL,
                           resampling = NULL, measure = NULL, runtime = Inf, terminator = NULL,
-                          preprocessing = NULL, portfolio = TRUE){
+                          preprocessing = NULL, portfolio = TRUE, additional_params = NULL,
+                          custom_trafo = NULL){
       checkmate::assert_r6(task, "TaskRegr")
       self$measure = measure %??% mlr_measures$get("regr.rmse")
       default_learners =  c("regr.ranger", "regr.xgboost","regr.svm",
@@ -77,7 +78,9 @@ AutoMLRegr = R6Class(
       super$initialize(task = task, learner_list = self$learner_list,
                        learner_timeout = learner_timeout, resampling = resampling,
                        measure = self$measure, runtime = runtime, terminator = terminator,
-                       preprocessing = preprocessing, portfolio = portfolio)
+                       preprocessing = preprocessing, portfolio = portfolio,
+                       additional_params = additional_params,
+                       custom_trafo = custom_trafo)
     }
   )
 )

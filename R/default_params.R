@@ -25,7 +25,9 @@
 default_params = function(learner_list, feature_counts,
                           using_hyperband = TRUE, using_prefixes = TRUE,
                           preprocessing = "stability",
-                          feature_types = NULL) {
+                          feature_types = NULL,
+                          custom_params = NULL,
+                          custom_trafo = NULL) {
   # model is selected during tuning as a branch of the GraphLearner
   ps = ParamSet$new()
   task_type = sub("\\..*", "", learner_list[[1]])
@@ -57,6 +59,10 @@ default_params = function(learner_list, feature_counts,
     ps = add_ranger_params(ps, task_type, using_prefixes)
   }
 
+  if(!is.null(custom_params)) {
+    ps$add(custom_params)
+  }
+
   # add dependencies for branch selection
   ps = add_branch_selection_dependencies(learner_list, task_type, ps)
 
@@ -80,6 +86,11 @@ default_params = function(learner_list, feature_counts,
     if (any(grepl("liblinear", learner_list))) {
       x = liblinear_trafo(x, param_set, task_type, using_prefixes)
     }
+
+    if (!is.null(custom_trafo)) {
+      x = custom_trafo(x, param_set)
+    }
+
     return(x)
   }
 
@@ -92,6 +103,7 @@ add_preprocessing_params = function(param_set,
                                     feature_counts,
                                     feature_types) {
   # Hyperband uses subsampling rate as a fidelity parameter
+  # needed for custom preprocessing as well, since we always use Hyperband
   if (using_hyperband) {
     param_set$add(
       ParamDbl$new("subsample.frac", lower = 0.1, upper = 1, tags = "budget")
