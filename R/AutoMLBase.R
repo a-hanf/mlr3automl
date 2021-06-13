@@ -54,6 +54,12 @@
 #' @param portfolio (`logical(1)`) \cr
 #' `mlr3automl` tries out a fixed portfolio of known good learners prior to tuning. \cr
 #' The `portfolio` parameter disables trying these portfolio learners.
+#' @param additional_params ([ParamSet][paradox::ParamSet]) \cr
+#' Additional parameter space to tune over, e.g. for custom learners / preprocessing. \cr
+#' @param custom_trafo (`function(x, param_set)`) \cr
+#' [Trafo function](https://mlr3book.mlr-org.com/searchspace.html#searchspace-trafo)
+#' to be applied in addition to existing transformations. Can be used to transform
+#' additional_params. \cr
 #'
 #' @field task ([`Task`][mlr3::Task]) \cr
 #' Contains the task to be solved.
@@ -90,7 +96,12 @@
 #' Alternatively, a [Graph][mlr3pipelines::Graph] object can be used to specify a custom preprocessing pipeline.
 #' @field portfolio (`logical(1)`) \cr
 #' Whether or not to try a fixed portfolio of known good learners prior to tuning. \cr
-#'
+#' @field additional_params ([ParamSet][paradox::ParamSet]) \cr
+#' Additional parameter space to tune over, e.g. for custom learners / preprocessing. \cr
+#' @field custom_trafo (`function(x, param_set)`) \cr
+#' [Trafo function](https://mlr3book.mlr-org.com/searchspace.html#searchspace-trafo)
+#' to be applied in addition to existing transformations. Can be used to transform
+#' additional_params. \cr
 #' @rawNamespace import(mlr3, except = c(lrn, lrns))
 #' @import mlr3learners
 #' @import mlr3extralearners

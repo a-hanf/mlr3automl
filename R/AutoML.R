@@ -40,7 +40,12 @@
 #' @param portfolio (`logical(1)`) \cr
 #' `mlr3automl` tries out a fixed portfolio of known good learners prior to tuning. \cr
 #' The `portfolio` parameter disables trying these portfolio learners.
-#'
+#' @param additional_params ([ParamSet][paradox::ParamSet]) \cr
+#' Additional parameter space to tune over, e.g. for custom learners / preprocessing. \cr
+#' @param custom_trafo (`function(x, param_set)`) \cr
+#' [Trafo function](https://mlr3book.mlr-org.com/searchspace.html#searchspace-trafo)
+#' to be applied in addition to existing transformations. Can be used to transform
+#' additional_params. \cr
 #' @return ([AutoMLClassif][mlr3automl::AutoMLClassif] | [AutoMLRegr][mlr3automl::AutoMLRegr]) \cr
 #' Returned class depends on the type of task.
 #' @export

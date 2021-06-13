@@ -21,12 +21,18 @@
 #' Type of preprocessing used.
 #' @param feature_types (`character()`)
 #' Types of features in the dataset. Used to determine appropriate imputation methods.
+#' @param additional_params ([ParamSet][paradox::ParamSet])
+#' Additional parameter space to tune over, e.g. for custom learners / preprocessing.
+#' @param custom_trafo (`function(x, param_set)`)
+#' [Trafo function](https://mlr3book.mlr-org.com/searchspace.html#searchspace-trafo)
+#' to be applied in addition to existing transformations. Can be used to transform
+#' additional_params.
 #' @return [ParamSet][paradox::ParamSet]
 default_params = function(learner_list, feature_counts,
                           using_hyperband = TRUE, using_prefixes = TRUE,
                           preprocessing = "stability",
                           feature_types = NULL,
-                          custom_params = NULL,
+                          additional_params = NULL,
                           custom_trafo = NULL) {
   # model is selected during tuning as a branch of the GraphLearner
   ps = ParamSet$new()
@@ -59,8 +65,8 @@ default_params = function(learner_list, feature_counts,
     ps = add_ranger_params(ps, task_type, using_prefixes)
   }
 
-  if(!is.null(custom_params)) {
-    ps$add(custom_params)
+  if(!is.null(additional_params)) {
+    ps$add(additional_params)
   }
 
   # add dependencies for branch selection
