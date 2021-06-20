@@ -251,7 +251,7 @@ AutoMLBase = R6Class("AutoMLBase",
                                  feature_counts = feature_counts,
                                  preprocessing = self$preprocessing,
                                  feature_types = unique(self$task$feature_types$type),
-                                 custom_params = self$additional_params,
+                                 additional_params = self$additional_params,
                                  custom_trafo = self$additional_trafo)
 
       tuner_list = list(self$tuner)
