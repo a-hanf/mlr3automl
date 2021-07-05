@@ -86,7 +86,7 @@ Defaults to \link[mlr3:mlr_resamplings_holdout]{ResamplingHoldout}.}
 
 \item{\code{measure}}{(\link[mlr3:Measure]{Measure}) \cr
 Contains the performance measure, for which we optimize during training. \cr
-Defaults to \link[mlr3measures:acc]{RMSE}.}
+Defaults to \link[mlr3measures:rmse]{RMSE}.}
 
 \item{\code{runtime}}{(\code{integer(1)}) \cr
 Number of seconds for which to run the optimization. Does \emph{not} include training time of the final model. \cr

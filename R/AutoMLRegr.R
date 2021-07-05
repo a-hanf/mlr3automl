@@ -26,7 +26,7 @@
 #' Defaults to [ResamplingHoldout][mlr3::ResamplingHoldout].
 #' @param measure ([Measure][mlr3::Measure]) \cr
 #' Contains the performance measure, for which we optimize during training. \cr
-#' Defaults to [RMSE][mlr3measures::acc].
+#' Defaults to [RMSE][mlr3measures::rmse].
 #' @param runtime (`integer(1)`) \cr
 #' Number of seconds for which to run the optimization. Does *not* include training time of the final model. \cr
 #' Defaults to `Inf`, letting [Hyperband][mlr3hyperband] terminate the tuning.
