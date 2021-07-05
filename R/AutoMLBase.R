@@ -34,7 +34,7 @@
 #' Defaults to [ResamplingHoldout][mlr3::ResamplingHoldout].
 #' @param measure ([Measure][mlr3::Measure]) \cr
 #' Contains the performance measure, for which we optimize during training. \cr
-#' Defaults to [Accuracy][mlr3measures::acc] for classification and [RMSE][mlr3measures::acc] for regression.
+#' Defaults to [Accuracy][mlr3measures::acc] for classification and [RMSE][mlr3measures::rmse] for regression.
 #' @param runtime (`integer(1)`) \cr
 #' Number of seconds for which to run the optimization. Does *not* include training time of the final model. \cr
 #' Defaults to `Inf`, letting [Hyperband][mlr3hyperband] terminate the tuning.
@@ -54,6 +54,12 @@
 #' @param portfolio (`logical(1)`) \cr
 #' `mlr3automl` tries out a fixed portfolio of known good learners prior to tuning. \cr
 #' The `portfolio` parameter disables trying these portfolio learners.
+#' @param additional_params ([ParamSet][paradox::ParamSet]) \cr
+#' Additional parameter space to tune over, e.g. for custom learners / preprocessing. \cr
+#' @param custom_trafo (`function(x, param_set)`) \cr
+#' [Trafo function](https://mlr3book.mlr-org.com/searchspace.html#searchspace-trafo)
+#' to be applied in addition to existing transformations. Can be used to transform
+#' additional_params. \cr
 #'
 #' @field task ([`Task`][mlr3::Task]) \cr
 #' Contains the task to be solved.
@@ -90,7 +96,12 @@
 #' Alternatively, a [Graph][mlr3pipelines::Graph] object can be used to specify a custom preprocessing pipeline.
 #' @field portfolio (`logical(1)`) \cr
 #' Whether or not to try a fixed portfolio of known good learners prior to tuning. \cr
-#'
+#' @field additional_params ([ParamSet][paradox::ParamSet]) \cr
+#' Additional parameter space to tune over, e.g. for custom learners / preprocessing. \cr
+#' @field custom_trafo (`function(x, param_set)`) \cr
+#' [Trafo function](https://mlr3book.mlr-org.com/searchspace.html#searchspace-trafo)
+#' to be applied in addition to existing transformations. Can be used to transform
+#' additional_params. \cr
 #' @rawNamespace import(mlr3, except = c(lrn, lrns))
 #' @import mlr3learners
 #' @import mlr3extralearners
@@ -119,13 +130,16 @@ AutoMLBase = R6Class("AutoMLBase",
     runtime = NULL,
     tuner = NULL,
     portfolio = NULL,
+    additional_params = NULL,
+    custom_trafo = NULL,
     #' @description
     #' Creates a new instance of this [R6][R6::R6Class] class.
     #'
     #' @return [AutoMLBase][mlr3automl::AutoMLBase]
     initialize = function(task, learner_list = NULL, learner_timeout = NULL,
                           resampling = NULL, measure = NULL, runtime = Inf, terminator = NULL,
-                          preprocessing = NULL, portfolio = TRUE) {
+                          preprocessing = NULL, portfolio = TRUE,
+                          additional_params = NULL, custom_trafo = NULL) {
       assert_task(task)
       assert_character(learner_list, any.missing = FALSE, min.len = 1)
       for (learner in learner_list) {
@@ -138,6 +152,8 @@ AutoMLBase = R6Class("AutoMLBase",
       self$task = task
       self$resampling = resampling %??% rsmp("holdout")
       self$preprocessing = preprocessing %??% "full"
+      self$additional_params = additional_params
+      self$custom_trafo = custom_trafo
 
       self$runtime = assert_number(runtime, lower = 0)
       self$learner_timeout = assert_number(learner_timeout, lower = 0, null.ok = TRUE) %??% runtime / 5  # maybe choose a larger divisor here
@@ -234,7 +250,9 @@ AutoMLBase = R6Class("AutoMLBase",
       param_set = default_params(learner_list = self$learner_list,
                                  feature_counts = feature_counts,
                                  preprocessing = self$preprocessing,
-                                 feature_types = unique(self$task$feature_types$type))
+                                 feature_types = unique(self$task$feature_types$type),
+                                 additional_params = self$additional_params,
+                                 custom_trafo = self$custom_trafo)
 
       tuner_list = list(self$tuner)
 

@@ -40,7 +40,12 @@
 #' @param portfolio (`logical(1)`) \cr
 #' `mlr3automl` tries out a fixed portfolio of known good learners prior to tuning. \cr
 #' The `portfolio` parameter disables trying these portfolio learners.
-#'
+#' @param additional_params ([ParamSet][paradox::ParamSet]) \cr
+#' Additional parameter space to tune over, e.g. for custom learners / preprocessing. \cr
+#' @param custom_trafo (`function(x, param_set)`) \cr
+#' [Trafo function](https://mlr3book.mlr-org.com/searchspace.html#searchspace-trafo)
+#' to be applied in addition to existing transformations. Can be used to transform
+#' additional_params. \cr
 #' @return ([AutoMLClassif][mlr3automl::AutoMLClassif] | [AutoMLRegr][mlr3automl::AutoMLRegr]) \cr
 #' Returned class depends on the type of task.
 #' @export
@@ -56,7 +61,8 @@
 AutoML = function(task, learner_list = NULL, learner_timeout = NULL,
                   resampling = NULL, measure = NULL, runtime = Inf,
                   terminator = NULL, preprocessing = NULL,
-                  portfolio = TRUE) {
+                  portfolio = TRUE, additional_params = NULL,
+                  custom_trafo = NULL) {
   if (task$task_type == "classif") {
     # stratify target variable so that every target label appears
     # in all folds while resampling
@@ -65,10 +71,14 @@ AutoML = function(task, learner_list = NULL, learner_timeout = NULL,
       task$col_roles$stratum = task$target_names
     }
     return(AutoMLClassif$new(task, learner_list, learner_timeout,
-                             resampling, measure, runtime, terminator, preprocessing, portfolio))
+                             resampling, measure, runtime, terminator,
+                             preprocessing, portfolio, additional_params,
+                             custom_trafo))
   } else if (task$task_type == "regr") {
     return(AutoMLRegr$new(task, learner_list, learner_timeout,
-                          resampling, measure, runtime, terminator, preprocessing, portfolio))
+                          resampling, measure, runtime, terminator,
+                          preprocessing, portfolio, additional_params,
+                          custom_trafo))
   } else {
     stop("mlr3automl only supports classification and regression tasks for now")
   }

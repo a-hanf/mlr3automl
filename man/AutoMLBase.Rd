@@ -72,6 +72,14 @@ Alternatively, a \link[mlr3pipelines:Graph]{Graph} object can be used to specify
 
 \item{\code{portfolio}}{(\code{logical(1)}) \cr
 Whether or not to try a fixed portfolio of known good learners prior to tuning. \cr}
+
+\item{\code{additional_params}}{(\link[paradox:ParamSet]{ParamSet}) \cr
+Additional parameter space to tune over, e.g. for custom learners / preprocessing. \cr}
+
+\item{\code{custom_trafo}}{(\verb{function(x, param_set)}) \cr
+\href{https://mlr3book.mlr-org.com/searchspace.html#searchspace-trafo}{Trafo function}
+to be applied in addition to existing transformations. Can be used to transform
+additional_params. \cr}
 }
 \if{html}{\out{</div>}}
 }
@@ -101,7 +109,9 @@ Creates a new instance of this \link[R6:R6Class]{R6} class.
   runtime = Inf,
   terminator = NULL,
   preprocessing = NULL,
-  portfolio = TRUE
+  portfolio = TRUE,
+  additional_params = NULL,
+  custom_trafo = NULL
 )}\if{html}{\out{</div>}}
 }
 
@@ -129,7 +139,7 @@ Defaults to \link[mlr3:mlr_resamplings_holdout]{ResamplingHoldout}.}
 
 \item{\code{measure}}{(\link[mlr3:Measure]{Measure}) \cr
 Contains the performance measure, for which we optimize during training. \cr
-Defaults to \link[mlr3measures:acc]{Accuracy} for classification and \link[mlr3measures:acc]{RMSE} for regression.}
+Defaults to \link[mlr3measures:acc]{Accuracy} for classification and \link[mlr3measures:rmse]{RMSE} for regression.}
 
 \item{\code{runtime}}{(\code{integer(1)}) \cr
 Number of seconds for which to run the optimization. Does \emph{not} include training time of the final model. \cr
@@ -155,6 +165,14 @@ Alternatively, a \link[mlr3pipelines:Graph]{Graph} object can be used to specify
 \item{\code{portfolio}}{(\code{logical(1)}) \cr
 \code{mlr3automl} tries out a fixed portfolio of known good learners prior to tuning. \cr
 The \code{portfolio} parameter disables trying these portfolio learners.}
+
+\item{\code{additional_params}}{(\link[paradox:ParamSet]{ParamSet}) \cr
+Additional parameter space to tune over, e.g. for custom learners / preprocessing. \cr}
+
+\item{\code{custom_trafo}}{(\verb{function(x, param_set)}) \cr
+\href{https://mlr3book.mlr-org.com/searchspace.html#searchspace-trafo}{Trafo function}
+to be applied in addition to existing transformations. Can be used to transform
+additional_params. \cr}
 }
 \if{html}{\out{</div>}}
 }

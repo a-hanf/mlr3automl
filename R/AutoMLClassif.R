@@ -46,7 +46,12 @@
 #' @param portfolio (`logical(1)`) \cr
 #' `mlr3automl` tries out a fixed portfolio of known good learners prior to tuning. \cr
 #' The `portfolio` parameter disables trying these portfolio learners.
-#'
+#' @param additional_params ([ParamSet][paradox::ParamSet]) \cr
+#' Additional parameter space to tune over, e.g. for custom learners / preprocessing. \cr
+#' @param custom_trafo (`function(x, param_set)`) \cr
+#' [Trafo function](https://mlr3book.mlr-org.com/searchspace.html#searchspace-trafo)
+#' to be applied in addition to existing transformations. Can be used to transform
+#' additional_params. \cr
 #' @examples
 #' \dontrun{
 #' library(mlr3)
@@ -65,7 +70,8 @@ AutoMLClassif = R6Class(
     #' @return [AutoMLClassif][mlr3automl::AutoMLClassif]
     initialize = function(task, learner_list = NULL, learner_timeout = NULL,
                           resampling = NULL, measure = NULL, runtime = Inf, terminator = NULL,
-                          preprocessing = NULL, portfolio = TRUE) {
+                          preprocessing = NULL, portfolio = TRUE, additional_params = NULL,
+                          custom_trafo = NULL) {
       checkmate::assert_r6(task, "TaskClassif")
       self$measure = measure %??% mlr_measures$get("classif.acc")
       # exclude cv_glmnet and svm by default, because they are slow
@@ -77,7 +83,9 @@ AutoMLClassif = R6Class(
       super$initialize(task = task, learner_list = self$learner_list,
                        learner_timeout = learner_timeout, resampling = resampling,
                        measure = self$measure, runtime = runtime, terminator = terminator,
-                       preprocessing = preprocessing, portfolio = portfolio)
+                       preprocessing = preprocessing, portfolio = portfolio,
+                       additional_params = additional_params,
+                       custom_trafo = custom_trafo)
     }
   )
 )
