@@ -13,7 +13,9 @@ AutoML(
   runtime = Inf,
   terminator = NULL,
   preprocessing = NULL,
-  portfolio = TRUE
+  portfolio = TRUE,
+  additional_params = NULL,
+  custom_trafo = NULL
 )
 }
 \arguments{
@@ -64,6 +66,14 @@ Alternatively, a \link[mlr3pipelines:Graph]{Graph} object can be used to specify
 \item{portfolio}{(\code{logical(1)}) \cr
 \code{mlr3automl} tries out a fixed portfolio of known good learners prior to tuning. \cr
 The \code{portfolio} parameter disables trying these portfolio learners.}
+
+\item{additional_params}{(\link[paradox:ParamSet]{ParamSet}) \cr
+Additional parameter space to tune over, e.g. for custom learners / preprocessing. \cr}
+
+\item{custom_trafo}{(\verb{function(x, param_set)}) \cr
+\href{https://mlr3book.mlr-org.com/searchspace.html#searchspace-trafo}{Trafo function}
+to be applied in addition to existing transformations. Can be used to transform
+additional_params. \cr}
 }
 \value{
 (\link[=AutoMLClassif]{AutoMLClassif} | \link[=AutoMLRegr]{AutoMLRegr}) \cr
