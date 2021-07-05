@@ -8,10 +8,8 @@ The first version is up and running, feedback is very welcome!
 Make sure to have the latest versions of the relevant mlr3 packages.
 
 ```
-devtools::install_github('https://github.com/mlr-org/mlr3@master')
-devtools::install_github('https://github.com/mlr-org/mlr3tuning@autotuner-notimeout')
-devtools::install_github('https://github.com/mlr-org/mlr3extralearners@master')
-devtools::install_github('https://github.com/a-hanf/mlr3automl@master', dependencies = TRUE)
+devtools::install_github('https://github.com/mlr-org/mlr3extralearners')
+devtools::install_github('https://github.com/a-hanf/mlr3automl', dependencies = TRUE)
 ```
 
 ## Using mlr3automl

@@ -66,10 +66,8 @@ knitr::opts_chunk$set(
 ```
 ## Installation
 ```{r}
-devtools::install_github('https://github.com/mlr-org/mlr3@master')
-devtools::install_github('https://github.com/mlr-org/mlr3tuning@autotuner-notimeout')
-devtools::install_github('https://github.com/mlr-org/mlr3extralearners@master')
-devtools::install_github('https://github.com/a-hanf/mlr3automl@master', dependencies = TRUE)
+devtools::install_github('https://github.com/mlr-org/mlr3extralearners')
+devtools::install_github('https://github.com/a-hanf/mlr3automl', dependencies = TRUE)
 ```
 ## Creating a model
 
@@ -112,9 +110,48 @@ We obtain an `mlr3::ResampleResult`. For more information on how to analyze this
 * custom [learners](https://mlr3book.mlr-org.com/learners.html): `model = AutoML(task = iris_task, learner_list = c("classif.svm", "classif.ranger"))`
 * custom [resampling](https://mlr3book.mlr-org.com/resampling.html#resampling): `model = AutoML(task = iris_task, resampling = rsmp("cv"))`
 * custom preprocessing - choose "none", "stability" or "full" for predefined pipelines: `model = AutoML(task = iris_task, learner_list = c("classif.ranger"), preprocessing = "none")`
-* custom preprocessing - supply your own [Graph](https://mlr3book.mlr-org.com/pipe-nodes-edges-graphs.html): `model = AutoML(task = iris_task, preprocessing = po("scale") %>>% po("pca"), learner_list = c("classif.svm"))`
+* custom preprocessing - supply your own [Graph](https://mlr3book.mlr-org.com/pipe-nodes-edges-graphs.html): see example #2 below.
+* custom parameter spaces and parameter transformations - see example #3 below.
 
-We are planning to let users set up their own search spaces for hyperparameter optimisation as well, but this is not implemented yet.
+## Examples
+Example #1: we create a regression model with custom learners and a fixed time budget. Every hyperparameter evaluation is stopped after 10 seconds. After 300 seconds of training, tuning is stopped and the best result obtained so far is returned:
+```{r}
+automl_model = AutoML(
+  task=tsk("mtcars"),
+  learner_list=c("regr.ranger", "regr.lm"),
+  learner_timeout=10,
+  runtime=300)
+```
+Example #2: we create a pipeline of preprocessing operators using `mlr3pipelines`. This pipeline replaces the preprocessing pipeline in `mlr3automl`. You can tune the choice of custom preprocessing operators and their associated hyperparameters by supplying additional parameters (see example #3).
+```{r}
+library(mlr3pipelines)
+imbalanced_preproc = po("imputemean") %>>%
+  po("smote") %>>%
+  po("classweights", minor_weight=2)
+
+automl_model = AutoML(task=tsk("pima"),
+  preprocessing = imbalanced_preproc) 
+```
+Example #3: we add a k-nearest-neighbors classifier to the learners, which has no pre-defined hyperparameter search space in `mlr3automl`. To perform hyperparameter tuning, we supply a parameter set using `paradox`. A parameter transformation is supplied in order to sample the hyperparameter on an exponential scale.
+```{r}
+library(paradox)
+new_params = ParamSet$new(list(
+  ParamInt$new("classif.kknn.k",
+	lower = 1, upper = 5, default = 3, tags = "kknn")))
+	
+my_trafo = function(x, param_set) {
+  if ("classif.kknn.k" %in% names(x)) {
+    x[["classif.kknn.k"]] = 2^x[["classif.kknn.k"]]
+	}
+	return(x)
+}
+	
+automl_model = AutoML(
+  task=tsk("iris"), 
+  learner_list="classif.kknn",
+  additional_params=new_params,
+  custom_trafo=my_trafo)
+```
 
 ## Background
 
