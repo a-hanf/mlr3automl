@@ -60,6 +60,27 @@ We obtain an `mlr3::ResampleResult`. For more information on how to
 analyze this result, see the [resampling section in the
 mlr3book](https://mlr3book.mlr-org.com/resampling.html).
 
+## Interpretable models
+
+`mlr3automl` models can be easily interpreted using the popular
+[iml](https://github.com/christophM/iml) or
+[DALEX](https://github.com/ModelOriented/DALEX) packages. Let’s
+interpret our model trained on the iris data set from the previous
+example:
+
+``` r
+dalex_explainer = iris_model$explain(iml_package = "DALEX")
+iml_explainer = iris_model$explain(iml_package = "iml")
+
+# compute and plot feature permutation importance using DALEX
+dalex_importance = DALEX::model_parts(dalex_explainer)
+plot(dalex_importance)
+
+# partial dependency plot using iml package
+iml_pdp = iml::FeatureEffect$new(iml_explainer, feature="Sepal.Width", method="pdp")
+plot(iml_pdp)
+```
+
 ## Customisation
 
 `mlr3automl` offers the following customization options in the `AutoML`

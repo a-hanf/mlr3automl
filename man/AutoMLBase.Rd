@@ -91,6 +91,7 @@ additional_params. \cr}
 \item \href{#method-predict}{\code{AutoMLBase$predict()}}
 \item \href{#method-resample}{\code{AutoMLBase$resample()}}
 \item \href{#method-tuned_params}{\code{AutoMLBase$tuned_params()}}
+\item \href{#method-explain}{\code{AutoMLBase$explain()}}
 \item \href{#method-clone}{\code{AutoMLBase$clone()}}
 }
 }
@@ -247,6 +248,27 @@ Helper to extract the best hyperparameters from a tuned model.
 
 \subsection{Returns}{
 \code{\link[data.table:data.table]{data.table}}
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-explain"></a>}}
+\if{latex}{\out{\hypertarget{method-explain}{}}}
+\subsection{Method \code{explain()}}{
+Create explanation objects for a trained model
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{AutoMLBase$explain(iml_package = "DALEX")}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{iml_package}}{(\code{character(0)}) \cr
+Package to be used: either \code{DALEX} or \code{iml}. Defaults to \code{DALEX}.}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+\link[=`explainer` object]{\code{explainer} object}
 }
 }
 \if{html}{\out{<hr>}}

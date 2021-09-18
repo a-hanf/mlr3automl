@@ -1,7 +1,13 @@
 # mlr3automl
 
-In this repository we are developing `mlr3automl`, an AutoML package for mlr3.  
+`mlr3automl` is an AutoML package for R based on [mlr3](https://github.com/mlr-org/mlr3).  
 The first version is up and running, feedback is very welcome!
+
+Watch our “UseR! 2021” presentation on Youtube for an
+introduction. The slides are [here](https://a-hanf.github.io/useR_presentation/useR_2021_mlr3automl.pdf).
+
+[![UseR! 2021 mlr3automl](https://img.youtube.com/vi/D4MrVnumM8k/0.jpg)](https://www.youtube.com/watch?v=D4MrVnumM8k&t=86s)
+
 
 ## Installation
 
