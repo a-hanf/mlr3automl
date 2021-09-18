@@ -35,6 +35,7 @@ regr_model$train()
 \if{html}{
 \out{<details open ><summary>Inherited methods</summary>}
 \itemize{
+\item \out{<span class="pkg-link" data-pkg="mlr3automl" data-topic="AutoMLBase" data-id="explain">}\href{../../mlr3automl/html/AutoMLBase.html#method-explain}{\code{mlr3automl::AutoMLBase$explain()}}\out{</span>}
 \item \out{<span class="pkg-link" data-pkg="mlr3automl" data-topic="AutoMLBase" data-id="predict">}\href{../../mlr3automl/html/AutoMLBase.html#method-predict}{\code{mlr3automl::AutoMLBase$predict()}}\out{</span>}
 \item \out{<span class="pkg-link" data-pkg="mlr3automl" data-topic="AutoMLBase" data-id="resample">}\href{../../mlr3automl/html/AutoMLBase.html#method-resample}{\code{mlr3automl::AutoMLBase$resample()}}\out{</span>}
 \item \out{<span class="pkg-link" data-pkg="mlr3automl" data-topic="AutoMLBase" data-id="train">}\href{../../mlr3automl/html/AutoMLBase.html#method-train}{\code{mlr3automl::AutoMLBase$train()}}\out{</span>}
