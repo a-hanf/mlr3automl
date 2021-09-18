@@ -330,8 +330,11 @@ AutoMLBase = R6Class("AutoMLBase",
     .create_robust_learner = function(learner_name) {
       # liblinear only works with columns of type double. Convert ints / bools -> dbl
       if (!all(c("integer", "logical") %in% lrn(learner_name)$feature_types)) {
-        pipeline = po("colapply", applicator = as.numeric,
-             param_vals = list(affect_columns = selector_type(c("logical", "integer"))))
+        pipeline = PipeOpColApply$new(
+          id = paste(learner_name, "colapply", sep="."),
+          param_vals = list(
+            affect_columns = selector_type(c("logical", "integer")),
+            applicator = as.numeric))
       } else {
         pipeline = NULL
       }
