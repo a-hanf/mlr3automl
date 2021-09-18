@@ -210,6 +210,30 @@ AutoMLBase = R6Class("AutoMLBase",
       } else {
         return(self$learner$tuning_instance$archive$best())
       }
+    },
+    #' @description
+    #' Create explanation objects for a trained model
+    #' @param iml_package (`character(0)`) \cr
+    #' Package to be used: either `DALEX` or `iml`. Defaults to `DALEX`.
+    #' @return [`explainer` object]
+    explain = function(iml_package = "DALEX") {
+      if (is.null(self$learner$tuning_instance$archive)) {
+        warning("Model has not been trained. Run the $train() method first.")
+      } else if(iml_package == "DALEX") {
+        return(DALEXtra::explain_mlr3(
+          self$learner$model$learner,
+          data = self$task$data(cols = self$task$feature_names),
+          y = self$task$data(cols = self$task$target_names),
+          label = "mlr3automlExplainer",
+          verbose = FALSE))
+      } else if(iml_package == "iml") {
+        return(iml::Predictor$new(
+          self$learner$model$learner,
+          data = self$task$data(cols = self$task$feature_names),
+          y = self$task$data(cols = self$task$target_names)))
+      }
+
+      warning("requested IML package not supported. Valid choices are DALEX and iml")
     }
   ),
   private = list(
