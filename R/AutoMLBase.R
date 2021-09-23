@@ -215,7 +215,7 @@ AutoMLBase = R6Class("AutoMLBase",
     #' Create explanation objects for a trained model
     #' @param iml_package (`character(0)`) \cr
     #' Package to be used: either `DALEX` or `iml`. Defaults to `DALEX`.
-    #' @return [`explainer` object]
+    #' @return explainer object
     explain = function(iml_package = "DALEX") {
       if (is.null(self$learner$tuning_instance$archive)) {
         warning("Model has not been trained. Run the $train() method first.")

@@ -268,7 +268,7 @@ Package to be used: either \code{DALEX} or \code{iml}. Defaults to \code{DALEX}.
 \if{html}{\out{</div>}}
 }
 \subsection{Returns}{
-\link[=`explainer` object]{\code{explainer} object}
+explainer object
 }
 }
 \if{html}{\out{<hr>}}
