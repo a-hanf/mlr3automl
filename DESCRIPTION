@@ -25,12 +25,23 @@ Imports:
     mlr3misc,
     mlr3oml,
     paradox,
+    bbotk,
     R6,
     testthat,
-    glmnet,
     LiblineaR,
     ranger,
     xgboost
+Remotes:
+    mlr-org/mlr3,
+    mlr-org/mlr3pipelines,
+    mlr-org/mlr3tuning,
+    mlr-org/mlr3learners,
+    mlr-org/mlr3extralearners,
+    mlr-org/mlr3hyperband,
+    mlr-org/mlr3misc,
+    mlr-org/mlr3oml,
+    mlr-org/paradox,
+    mlr-org/bbotk
 Roxygen: list(markdown = TRUE, r6 = TRUE)
 RoxygenNote: 7.1.2
 Suggests: 
