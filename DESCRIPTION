@@ -28,7 +28,6 @@ Imports:
     bbotk,
     R6,
     testthat,
-    glmnet,
     LiblineaR,
     ranger,
     xgboost
