@@ -74,8 +74,7 @@ AutoMLRegr = R6Class(
                           custom_trafo = NULL){
       checkmate::assert_r6(task, "TaskRegr")
       self$measure = measure %??% mlr_measures$get("regr.rmse")
-      default_learners =  c("regr.ranger", "regr.xgboost","regr.svm",
-                            "regr.liblinear", "regr.cv_glmnet")
+      default_learners =  c("regr.ranger", "regr.xgboost", "regr.liblinear")
       self$learner_list = learner_list %??% default_learners
       if (!("regr.featureless" %in% self$learner_list)) {
         self$learner_list = c(self$learner_list, "regr.featureless")
