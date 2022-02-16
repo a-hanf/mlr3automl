@@ -349,7 +349,7 @@ AutoMLBase = R6Class("AutoMLBase",
     .compute_num_effective_vars = function() {
       # create pipeline with all the PipeOps that change the number of features
       base_pipeline = pipeline_robustify(self$task, impute_missings = TRUE, factors_to_numeric = FALSE)
-      output_task = base_pipeline$train(self$task)$removeconstants.output
+      output_task = base_pipeline$train(self$task)$removeconstants_postrobustify.output
 
       # number of features per type in task before encoding
       numeric_cols = nrow(output_task$feature_types[output_task$feature_types$type %in% c("numeric", "integer"), ])
