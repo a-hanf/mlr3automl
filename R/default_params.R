@@ -200,7 +200,7 @@ add_xgboost_params = function(param_set, task_type, using_prefixes) {
   )))
 
   # additional dependencies for parameters of dart booster
-  dart_params = paste0(param_id_prefix, c("sample_type", "rate_drop", "normalize_type"))
+  dart_params = paste0(param_id_prefix, c("sample_type", "rate_drop"))
 
   for (param in dart_params) {
     param_set$add_dep(param, paste0(param_id_prefix, "booster"), CondEqual$new("dart"))
@@ -215,6 +215,8 @@ add_xgboost_params = function(param_set, task_type, using_prefixes) {
     param_set$add_dep(param, paste0(param_id_prefix, "booster"),
                       CondAnyOf$new(c("dart", "gbtree")))
   }
+
+  param_set$add_dep(paste0(param_id_prefix, "normalize_type"), paste0(param_id_prefix, "booster"), CondEqual$new("gbtree"))
 
   return(param_set)
 }
