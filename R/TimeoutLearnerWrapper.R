@@ -17,7 +17,6 @@ LearnerWrapperExpire = R6Class("LearnerWrapperExpire", inherit = mlr3::Learner,
     data_formats = NULL,
     packages = NULL,
     predict_sets = "test",
-    fallback = NULL,
     man = NULL,
     expire_time = NULL,
     initialize = function(wrapped_learner, expire_time) {
@@ -33,7 +32,7 @@ LearnerWrapperExpire = R6Class("LearnerWrapperExpire", inherit = mlr3::Learner,
         properties = wrapped_learner$properties, data_formats = wrapped_learner$data_formats, packages = wrapped_learner$packages,
         man = wrapped_learner$man)
       private$.learner = wrapped_learner$clone(deep = TRUE)
-      self$fallback = private$.learner$fallback
+      private$.fallback = private$.learner$fallback
       private$.learner$fallback = NULL
       self$encapsulate = mlr3misc::map_chr(private$.learner$encapsulate, function(x) if (x == "none") "none" else "evaluate")
       self$expire_time = expire_time
@@ -47,6 +46,13 @@ LearnerWrapperExpire = R6Class("LearnerWrapperExpire", inherit = mlr3::Learner,
     phash = function() {
       # change the hash here to avoid confusion between wrapped and unwrapped learners
       digest::digest(list("LearnerWrapperExpire", private$.learner$phash, self$fallback$hash))
+    },
+    fallback = function(rhs) {
+      if (!missing(rhs)) {
+        private$.fallback = rhs
+      } else {
+        private$.fallback
+      }
     },
     predict_type = function(rhs) {
       if (!missing(rhs)) {
@@ -73,6 +79,7 @@ LearnerWrapperExpire = R6Class("LearnerWrapperExpire", inherit = mlr3::Learner,
   ),
   private = list(
     .learner = NULL,
+    .fallback = NULL,
     .train = function(task) {
       timeout = as.numeric(difftime(self$expire_time, Sys.time(), units = "secs"))
       if (timeout < 0) {
