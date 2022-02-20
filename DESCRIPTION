@@ -16,7 +16,7 @@ Imports:
     checkmate,
     data.table,
     future,
-    mlr3 (>= 0.13.2),
+    mlr3,
     mlr3pipelines,
     mlr3tuning,
     mlr3learners,
@@ -32,6 +32,7 @@ Imports:
     ranger,
     xgboost
 Remotes:
+    mlr-org/mlr3,
     mlr-org/mlr3tuning,
     mlr-org/mlr3hyperband,
     mlr-org/bbotk
