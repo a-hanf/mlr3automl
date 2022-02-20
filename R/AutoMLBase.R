@@ -160,7 +160,7 @@ AutoMLBase = R6Class("AutoMLBase",
       self$tuning_terminator = terminator %??% trm("none")
       self$portfolio = assert_logical(portfolio, len = 1)
       if (is.finite(self$runtime)) {
-        # continue running Hyperband training budget is used
+        # continue running until Hyperband training budget is used
         self$tuner = tnr("hyperband", eta = 3L, repetitions=Inf)
       } else {
         # Let Hyperband terminate training
