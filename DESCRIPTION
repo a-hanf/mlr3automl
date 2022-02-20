@@ -16,7 +16,7 @@ Imports:
     checkmate,
     data.table,
     future,
-    mlr3,
+    mlr3 (>= 0.13.2),
     mlr3pipelines,
     mlr3tuning,
     mlr3learners,
